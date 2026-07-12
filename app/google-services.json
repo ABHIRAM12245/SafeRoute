@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "228021450646",
+    "project_id": "routeguard-93561",
+    "storage_bucket": "routeguard-93561.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:228021450646:android:13ee11c19d5d1e37850fb7",
+        "android_client_info": {
+          "package_name": "com.example.routeguard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1VztaJMiguoxRn6ndmuzlD8e1uFEQCko"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:228021450646:android:dc88bae2bcf16abd850fb7",
+        "android_client_info": {
+          "package_name": "com.vlabs.routeguard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1VztaJMiguoxRn6ndmuzlD8e1uFEQCko"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
