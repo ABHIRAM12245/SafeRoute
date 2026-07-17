@@ -1,3 +1,29 @@
 <resources>
     <string name="app_name">RouteGuard</string>
+    <string name="tag_line">Know Before You Go</string>
+    <string name="notifications_desc">Notifications</string>
+    <string name="guest_profile_desc">Guest Profile</string>
+    <string name="search_desc">Search Icon</string>
+    <string name="search_hint">Search destination&#8230;</string>
+    <string name="report_desc">Report</string>
+    <string name="current_location_desc">Current Location</string>
+    <string name="desc_filters">Filters</string>
+    <string name="filter_categories">Filter Categories</string>
+    <string name="police_checking">Police Checking</string>
+    <string name="accident">Accident</string>
+    <string name="heavy_traffic">Heavy Traffic</string>
+    <string name="road_construction">Road Construction</string>
+    <string name="animal_on_road">Animal on Road</string>
+    <string name="water_logging">Water Logging</string>
+    <string name="other">Other</string>
+    <string name="reset">Reset</string>
+    <string name="apply">Apply</string>
+    <string name="location_services_off">Location Services Off</string>
+    <string name="turn_on_gps">Turn on GPS to use your current location.</string>
+    <string name="cancel">Cancel</string>
+    <string name="turn_on">Turn On</string>
+    <string name="report_type">Report Type</string>
+    <string name="just_now">Just now</string>
+    <string name="report_description_placeholder">Report description goes here.</string>
+    <string name="close">Close</string>
 </resources>
