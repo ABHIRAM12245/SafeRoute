@@ -42,7 +42,20 @@ public class PlacesAdapter extends RecyclerView.Adapter<PlacesAdapter.PlaceViewH
     @Override
     public void onBindViewHolder(@NonNull PlaceViewHolder holder, int position) {
         PlaceSuggestion suggestion = suggestions.get(position);
-        holder.tvPlaceName.setText(suggestion.getDisplayName());
+        
+        String fullName = suggestion.getDisplayName();
+        if (fullName != null) {
+            int firstComma = fullName.indexOf(',');
+            if (firstComma != -1) {
+                holder.tvPlaceName.setText(fullName.substring(0, firstComma).trim());
+                holder.tvPlaceAddress.setText(fullName.substring(firstComma + 1).trim());
+                holder.tvPlaceAddress.setVisibility(View.VISIBLE);
+            } else {
+                holder.tvPlaceName.setText(fullName.trim());
+                holder.tvPlaceAddress.setVisibility(View.GONE);
+            }
+        }
+        
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onItemClick(suggestion);
@@ -57,10 +70,12 @@ public class PlacesAdapter extends RecyclerView.Adapter<PlacesAdapter.PlaceViewH
 
     static class PlaceViewHolder extends RecyclerView.ViewHolder {
         TextView tvPlaceName;
+        TextView tvPlaceAddress;
 
         public PlaceViewHolder(@NonNull View itemView) {
             super(itemView);
             tvPlaceName = itemView.findViewById(R.id.tvPlaceName);
+            tvPlaceAddress = itemView.findViewById(R.id.tvPlaceAddress);
         }
     }
 }

@@ -107,12 +107,64 @@ public class UserFirestoreRepository {
         db.collection("users").document(userId).get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        User user = documentSnapshot.toObject(User.class);
-                        callback.onSuccess(user);
+                        User user = mapDocumentToUser(documentSnapshot);
+                        if (user != null) {
+                            callback.onSuccess(user);
+                        } else {
+                            callback.onFailure(new Exception("Failed to parse user document"));
+                        }
                     } else {
                         callback.onFailure(new Exception("User profile not found"));
                     }
                 })
                 .addOnFailureListener(callback::onFailure);
+    }
+
+    private User mapDocumentToUser(com.google.firebase.firestore.DocumentSnapshot document) {
+        try {
+            if (!document.exists()) return null;
+
+            User user = new User();
+            user.setUserId(document.getString("userId"));
+            user.setDisplayName(document.getString("displayName"));
+            user.setEmail(document.getString("email"));
+            user.setPhotoUrl(document.getString("photoUrl"));
+
+            Object createdAtObj = document.get("createdAt");
+            if (createdAtObj instanceof com.google.firebase.Timestamp) {
+                user.setCreatedAt(((com.google.firebase.Timestamp) createdAtObj).toDate().getTime());
+            } else if (createdAtObj instanceof Long) {
+                user.setCreatedAt((Long) createdAtObj);
+            } else if (createdAtObj instanceof Double) {
+                user.setCreatedAt(((Double) createdAtObj).longValue());
+            }
+
+            Object lastActiveAtObj = document.get("lastActiveAt");
+            if (lastActiveAtObj instanceof com.google.firebase.Timestamp) {
+                user.setLastActiveAt(((com.google.firebase.Timestamp) lastActiveAtObj).toDate().getTime());
+            } else if (lastActiveAtObj instanceof Long) {
+                user.setLastActiveAt((Long) lastActiveAtObj);
+            } else if (lastActiveAtObj instanceof Double) {
+                user.setLastActiveAt(((Double) lastActiveAtObj).longValue());
+            }
+
+            if (document.contains("trustScore") && document.getLong("trustScore") != null) {
+                user.setTrustScore(document.getLong("trustScore").intValue());
+            }
+            if (document.contains("reputationScore") && document.getLong("reputationScore") != null) {
+                user.setReputationScore(document.getLong("reputationScore").intValue());
+            }
+            
+            Boolean isModerator = document.getBoolean("isModerator");
+            user.setModerator(isModerator != null && isModerator);
+            
+            Boolean isBlocked = document.getBoolean("isBlocked");
+            user.setBlocked(isBlocked != null && isBlocked);
+
+            return user;
+        } catch (Exception e) {
+            android.util.Log.e("UserFirestoreRepo", "Error mapping user document", e);
+            return null;
+        }
     }
 }

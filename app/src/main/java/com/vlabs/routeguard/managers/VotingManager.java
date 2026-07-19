@@ -99,4 +99,88 @@ public class VotingManager {
             }
         });
     }
+
+    /**
+     * Starts a real-time listener for the aggregated vote count.
+     *
+     * @param reportId The ID of the report.
+     * @param callback The callback to return the VoteCount.
+     * @return The ListenerRegistration.
+     */
+    public com.google.firebase.firestore.ListenerRegistration startVoteCountListener(String reportId, GetVoteCountCallback callback) {
+        return voteRepository.startVotesListener(reportId, new com.vlabs.routeguard.repositories.VoteFirestoreRepository.GetVotesCallback() {
+            @Override
+            public void onSuccess(java.util.List<ReportVote> votes) {
+                VoteCount voteCount = voteRepository.calculateVoteCount(votes);
+                callback.onSuccess(voteCount);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                callback.onFailure(e);
+            }
+        });
+    }
+
+    /**
+     * Starts a real-time listener for the current user's vote.
+     *
+     * @param reportId The ID of the report.
+     * @param userId The ID of the user.
+     * @param callback The callback to return the ReportVote.
+     * @return The ListenerRegistration.
+     */
+    public com.google.firebase.firestore.ListenerRegistration startCurrentUserVoteListener(String reportId, String userId, GetCurrentUserVoteCallback callback) {
+        return voteRepository.startCurrentUserVoteListener(reportId, userId, new com.vlabs.routeguard.repositories.VoteFirestoreRepository.GetCurrentUserVoteCallback() {
+            @Override
+            public void onSuccess(ReportVote vote) {
+                callback.onSuccess(vote);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                callback.onFailure(e);
+            }
+        });
+    }
+
+    /**
+     * Calculates the trust score based on the aggregated vote counts.
+     * Keeps business logic outside the model and allows future weighted trust algorithms.
+     *
+     * @param voteCount The aggregated vote count.
+     * @return The calculated trust score.
+     */
+    public int calculateTrustScore(VoteCount voteCount) {
+        if (voteCount == null) {
+            return 0;
+        }
+        return voteCount.getUpvoteCount() - voteCount.getDownvoteCount();
+    }
+
+    /**
+     * Calculates the trust score combining Votes, Confirmations, and Freshness.
+     * Weights: 30% Votes, 60% Confirmations, 10% Freshness.
+     */
+    public int calculateTrustScore(VoteCount voteCount, com.vlabs.routeguard.models.ConfirmationCount confirmCount, long reportTimestampMs) {
+        float weightVotes = 0.30f;
+        float weightConfirm = 0.60f;
+        float weightFreshness = 0.10f;
+
+        int votesScore = (voteCount != null) ? (voteCount.getUpvoteCount() - voteCount.getDownvoteCount()) : 0;
+        int confirmScore = (confirmCount != null) ? (confirmCount.getActiveCount() - confirmCount.getGoneCount()) : 0;
+
+        float normalizedVotes = votesScore * (weightVotes * 10); // 3x multiplier
+        float normalizedConfirms = confirmScore * (weightConfirm * 10); // 6x multiplier
+
+        float normalizedFreshness = 0f;
+        long ageMs = System.currentTimeMillis() - reportTimestampMs;
+        if (ageMs < 3600000) { // < 1 hr
+            normalizedFreshness = 1.0f * (weightFreshness * 10); // +1
+        } else if (ageMs > 10800000) { // > 3 hrs
+            normalizedFreshness = -1.0f * (weightFreshness * 10); // -1
+        }
+
+        return Math.round(normalizedVotes + normalizedConfirms + normalizedFreshness);
+    }
 }

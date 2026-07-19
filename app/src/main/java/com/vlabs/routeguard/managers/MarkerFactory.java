@@ -14,10 +14,11 @@ import androidx.core.content.ContextCompat;
 
 import com.vlabs.routeguard.R;
 import com.vlabs.routeguard.models.ReportType;
+import com.vlabs.routeguard.managers.ConfidenceEngine.ConfidenceLevel;
 
 public class MarkerFactory {
 
-    public static Drawable getMarkerIcon(Context context, ReportType type) {
+    public static Drawable getMarkerIcon(Context context, ReportType type, ConfidenceLevel confidenceLevel) {
         int iconResId;
         int color;
 
@@ -59,18 +60,48 @@ public class MarkerFactory {
         // Consistent marker size
         int size = (int) (36 * context.getResources().getDisplayMetrics().density);
 
-        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        // Apply confidence rules (Opacity and Scale)
+        int alpha = 255;
+        float scale = 1.0f;
+        int strokeWidth = 0;
+
+        if (confidenceLevel == ConfidenceLevel.HIGH) {
+            alpha = 255;
+            scale = 1.1f;
+            strokeWidth = (int) (2 * context.getResources().getDisplayMetrics().density);
+        } else if (confidenceLevel == ConfidenceLevel.MEDIUM) {
+            alpha = 204; // 80%
+            scale = 1.0f;
+        } else if (confidenceLevel == ConfidenceLevel.LOW) {
+            alpha = 102; // 40%
+            scale = 0.8f;
+        }
+
+        int finalSize = (int) (size * scale);
+        Bitmap bitmap = Bitmap.createBitmap(finalSize, finalSize, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         
-        // Draw background circle
+        float center = finalSize / 2f;
+        float radius = (finalSize / 2f) - strokeWidth;
+
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setColor(color);
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint);
+        paint.setAlpha(alpha);
+        canvas.drawCircle(center, center, radius, paint);
+
+        if (strokeWidth > 0) {
+            Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            strokePaint.setColor(Color.WHITE);
+            strokePaint.setStyle(Paint.Style.STROKE);
+            strokePaint.setStrokeWidth(strokeWidth);
+            canvas.drawCircle(center, center, radius, strokePaint);
+        }
 
         // Draw icon in the center
-        int padding = (int) (8 * context.getResources().getDisplayMetrics().density);
-        vectorDrawable.setBounds(padding, padding, size - padding, size - padding);
+        int padding = (int) (8 * scale * context.getResources().getDisplayMetrics().density);
+        vectorDrawable.setBounds(padding, padding, finalSize - padding, finalSize - padding);
         vectorDrawable.setColorFilter(new PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN));
+        vectorDrawable.setAlpha(alpha);
         vectorDrawable.draw(canvas);
 
         return new BitmapDrawable(context.getResources(), bitmap);

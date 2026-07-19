@@ -43,6 +43,17 @@ public class VoteRepository {
     }
 
     /**
+     * Starts a real-time listener for votes by delegating to the data layer.
+     *
+     * @param reportId The ID of the report.
+     * @param callback The callback to handle the asynchronous result.
+     * @return The ListenerRegistration.
+     */
+    public com.google.firebase.firestore.ListenerRegistration startVotesListener(String reportId, VoteFirestoreRepository.GetVotesCallback callback) {
+        return firestoreRepository.startVotesListener(reportId, callback);
+    }
+
+    /**
      * Retrieves the current user's vote by delegating to the data layer.
      *
      * @param reportId The ID of the report.
@@ -51,6 +62,18 @@ public class VoteRepository {
      */
     public void getCurrentUserVote(String reportId, String userId, VoteFirestoreRepository.GetCurrentUserVoteCallback callback) {
         firestoreRepository.getCurrentUserVote(reportId, userId, callback);
+    }
+
+    /**
+     * Starts a real-time listener for the current user's vote by delegating to the data layer.
+     *
+     * @param reportId The ID of the report.
+     * @param userId The ID of the user.
+     * @param callback The callback to handle the asynchronous result.
+     * @return The ListenerRegistration.
+     */
+    public com.google.firebase.firestore.ListenerRegistration startCurrentUserVoteListener(String reportId, String userId, VoteFirestoreRepository.GetCurrentUserVoteCallback callback) {
+        return firestoreRepository.startCurrentUserVoteListener(reportId, userId, callback);
     }
 
     /**

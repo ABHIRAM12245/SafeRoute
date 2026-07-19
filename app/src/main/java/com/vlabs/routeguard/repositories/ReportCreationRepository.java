@@ -77,7 +77,7 @@ public class ReportCreationRepository extends BaseRepository {
 
         long createdAt = System.currentTimeMillis();
         long expiresAt = lifecycleManager.calculateExpiration(draft.getCategory(), createdAt);
-        reportData.put(FirestoreFields.EXPIRES_AT, expiresAt);
+        reportData.put(FirestoreFields.EXPIRES_AT, new com.google.firebase.Timestamp(new java.util.Date(expiresAt)));
 
         newReportRef.set(reportData)
                 .addOnSuccessListener(aVoid -> callback.onSuccess())

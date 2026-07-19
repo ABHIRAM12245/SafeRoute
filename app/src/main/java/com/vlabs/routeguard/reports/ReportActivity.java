@@ -4,7 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.provider.Settings;
+import android.os.Bundle;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -25,8 +25,11 @@ import com.vlabs.routeguard.fragments.CategorySelectionBottomSheet;
 import com.vlabs.routeguard.managers.CameraCaptureManager;
 import com.vlabs.routeguard.managers.CameraPermissionManager;
 import com.vlabs.routeguard.managers.SessionManager;
-import com.vlabs.routeguard.managers.UserLocationManager;
+import com.vlabs.routeguard.managers.CameraPermissionManager;
+import com.vlabs.routeguard.managers.SessionManager;
 import com.vlabs.routeguard.models.PhotoAttachment;
+import com.vlabs.routeguard.utils.IntentConstants;
+import com.vlabs.routeguard.utils.NetworkUtils;
 import com.vlabs.routeguard.viewmodels.ReportCreationViewModel;
 import com.vlabs.routeguard.viewmodels.SubmissionState;
 
@@ -39,8 +42,6 @@ public class ReportActivity extends BaseActivity {
 
     private ActivityReportBinding binding;
     private ReportCreationViewModel viewModel;
-    private UserLocationManager userLocationManager;
-    private ActivityResultLauncher<String[]> locationPermissionRequest;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
     private ActivityResultLauncher<android.net.Uri> cameraLauncher;
     private CameraCaptureManager cameraCaptureManager;
@@ -61,7 +62,6 @@ public class ReportActivity extends BaseActivity {
         setContentView(binding.getRoot());
 
         viewModel = new ViewModelProvider(this).get(ReportCreationViewModel.class);
-        userLocationManager = new UserLocationManager(this);
         cameraCaptureManager = new CameraCaptureManager(this);
         cameraPermissionManager = new CameraPermissionManager(this);
 
@@ -69,7 +69,33 @@ public class ReportActivity extends BaseActivity {
         setupObservers();
         setupPermissionLaunchers();
         
-        fetchLocation();
+        parseIntentExtras();
+    }
+
+    private void parseIntentExtras() {
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra(IntentConstants.EXTRA_LATITUDE) && intent.hasExtra(IntentConstants.EXTRA_LONGITUDE) && intent.hasExtra(IntentConstants.EXTRA_CATEGORY)) {
+            double lat = intent.getDoubleExtra(IntentConstants.EXTRA_LATITUDE, 0);
+            double lon = intent.getDoubleExtra(IntentConstants.EXTRA_LONGITUDE, 0);
+            String categoryName = intent.getStringExtra(IntentConstants.EXTRA_CATEGORY);
+            
+            GeoPoint point = new GeoPoint(lat, lon);
+            String locString = String.format("%.4f, %.4f", lat, lon);
+            binding.etLocation.setText(locString);
+            viewModel.setLocation(point);
+
+            try {
+                com.vlabs.routeguard.models.ReportType category = com.vlabs.routeguard.models.ReportType.valueOf(categoryName);
+                binding.etCategory.setText(category.getDisplayName());
+                viewModel.setCategory(category);
+            } catch (IllegalArgumentException e) {
+                Toast.makeText(this, "Invalid category.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        } else {
+            Toast.makeText(this, "Missing location or category data.", Toast.LENGTH_SHORT).show();
+            finish();
+        }
     }
 
     private void setupViews() {
@@ -78,6 +104,11 @@ public class ReportActivity extends BaseActivity {
         binding.btnCancel.setOnClickListener(v -> finish());
         
         binding.btnSubmit.setOnClickListener(v -> {
+            if (!NetworkUtils.isNetworkAvailable(this)) {
+                Toast.makeText(this, "No internet connection. Cannot submit report.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
             viewModel.setDescription(binding.etDescription.getText().toString());
             
             if (SessionManager.getInstance().getCurrentUser() != null) {
@@ -86,15 +117,6 @@ public class ReportActivity extends BaseActivity {
             } else {
                 Toast.makeText(this, "Session invalid. Please login again.", Toast.LENGTH_SHORT).show();
             }
-        });
-
-        binding.etCategory.setOnClickListener(v -> {
-            CategorySelectionBottomSheet bottomSheet = CategorySelectionBottomSheet.newInstance();
-            bottomSheet.setOnCategorySelectedListener(category -> {
-                binding.etCategory.setText(category.getDisplayName());
-                viewModel.setCategory(category);
-            });
-            bottomSheet.show(getSupportFragmentManager(), "CategorySelection");
         });
 
         binding.cvAddPhoto.setOnClickListener(v -> {
@@ -216,6 +238,11 @@ public class ReportActivity extends BaseActivity {
                     binding.btnSubmit.setEnabled(true);
                     binding.btnSubmit.setText("Submit Report");
                     break;
+                case DUPLICATE_FOUND:
+                    binding.btnSubmit.setEnabled(true);
+                    binding.btnSubmit.setText("Submit Report");
+                    showDuplicateDialog();
+                    break;
                 case IDLE:
                 case VALIDATING:
                 default:
@@ -232,19 +259,6 @@ public class ReportActivity extends BaseActivity {
     }
 
     private void setupPermissionLaunchers() {
-        locationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-            Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
-            Boolean coarseLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false);
-
-            if ((fineLocationGranted != null && fineLocationGranted) || 
-                (coarseLocationGranted != null && coarseLocationGranted)) {
-                fetchLocation();
-            } else {
-                Toast.makeText(this, "Location permission is required to create a report.", Toast.LENGTH_SHORT).show();
-                finish();
-            }
-        });
-
         cameraPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
             if (isGranted) {
                 prepareCamera();
@@ -268,58 +282,35 @@ public class ReportActivity extends BaseActivity {
         });
     }
 
-    private void fetchLocation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            
-            binding.etLocation.setText("Fetching location...");
-            
-            userLocationManager.checkAndFetchLocation(new UserLocationManager.LocationCallback() {
-                @Override
-                public void onLocationFound(GeoPoint point) {
-                    String locString = String.format("%.4f, %.4f", point.getLatitude(), point.getLongitude());
-                    binding.etLocation.setText(locString);
-                    viewModel.setLocation(point);
-                }
+    private void showDuplicateDialog() {
+        com.vlabs.routeguard.models.RoadReport duplicate = viewModel.getDuplicateReport();
+        if (duplicate == null) return;
 
-                @Override
-                public void onLocationError(String error) {
-                    binding.etLocation.setText("Error fetching location");
-                    Toast.makeText(ReportActivity.this, error, Toast.LENGTH_SHORT).show();
-                }
+        float distance = viewModel.getDuplicateDistanceMeters();
+        long ageMs = System.currentTimeMillis() - duplicate.getTimestamp();
+        int ageMins = (int) (ageMs / (1000 * 60));
+        
+        String message = String.format("Category: %s\nAge: %d mins\nConfidence: %d/100\nDistance: %.0f meters",
+                duplicate.getType().getDisplayName(),
+                ageMins,
+                duplicate.getConfidenceScore(),
+                distance);
 
-                @Override
-                public void onGpsDisabled() {
-                    binding.etLocation.setText("GPS Disabled");
-                    showGpsBottomSheet();
-                }
-            });
-        } else {
-            locationPermissionRequest.launch(new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            });
-        }
-    }
-    
-    private void showGpsBottomSheet() {
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this);
-        bottomSheetDialog.setContentView(R.layout.bottom_sheet_gps);
-
-        MaterialButton btnTurnOn = bottomSheetDialog.findViewById(R.id.btnTurnOnGps);
-        MaterialButton btnCancel = bottomSheetDialog.findViewById(R.id.btnCancelGps);
-
-        if (btnTurnOn != null) {
-            btnTurnOn.setOnClickListener(v -> {
-                startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
-                bottomSheetDialog.dismiss();
-            });
-        }
-
-        if (btnCancel != null) {
-            btnCancel.setOnClickListener(v -> bottomSheetDialog.dismiss());
-        }
-
-        bottomSheetDialog.show();
+        new AlertDialog.Builder(this)
+                .setTitle("Already reported nearby")
+                .setMessage(message)
+                .setPositiveButton("Confirm Existing", (dialog, which) -> {
+                    // Tell HomeActivity to select this marker by returning it in the intent
+                    Intent resultIntent = new Intent();
+                    resultIntent.putExtra(IntentConstants.EXTRA_REPORT_ID, duplicate.getReportId());
+                    setResult(RESULT_OK, resultIntent);
+                    finish();
+                })
+                .setNeutralButton("Create Anyway", (dialog, which) -> {
+                    String reporterId = SessionManager.getInstance().getCurrentUser().getUid();
+                    viewModel.submitReportInternal(reporterId, true);
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 }

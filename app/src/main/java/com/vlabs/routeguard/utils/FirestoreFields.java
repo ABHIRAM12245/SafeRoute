@@ -13,4 +13,13 @@ public class FirestoreFields {
     public static final String REPORT_ID = "reportId";
     public static final String EXPIRES_AT = "expiresAt";
     public static final String IMAGE_URL = "imageUrl";
+    public static final String COMMENT_COUNT = "commentCount";
+    public static final String LAST_COMMENT_AT = "lastCommentAt";
+
+    // Comment fields
+    public static final String COMMENT_ID = "commentId";
+    public static final String DISPLAY_NAME = "displayName";
+    public static final String PHOTO_URL = "photoUrl";
+    public static final String TEXT = "text";
+    public static final String IS_DELETED = "isDeleted";
 }

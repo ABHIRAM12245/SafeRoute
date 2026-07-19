@@ -5,5 +5,6 @@ public enum SubmissionState {
     VALIDATING,
     SUBMITTING,
     SUCCESS,
-    ERROR
+    ERROR,
+    DUPLICATE_FOUND
 }

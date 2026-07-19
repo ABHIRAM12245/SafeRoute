@@ -14,6 +14,11 @@ public class ReportRepository extends BaseRepository {
         void onError(String error);
     }
 
+    public interface SingleReportCallback {
+        void onSuccess(RoadReport report);
+        void onError(String error);
+    }
+
     private final FirestoreRepository firestoreRepository;
 
     public ReportRepository() {
@@ -22,6 +27,10 @@ public class ReportRepository extends BaseRepository {
 
     public void fetchRoadReports(ReportCallback callback) {
         firestoreRepository.fetchReports(callback);
+    }
+
+    public void fetchReportById(String reportId, SingleReportCallback callback) {
+        firestoreRepository.fetchReportById(reportId, callback);
     }
 
     public void startRoadReportsListener(ReportCallback callback) {

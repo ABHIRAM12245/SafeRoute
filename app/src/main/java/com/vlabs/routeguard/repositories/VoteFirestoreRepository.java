@@ -84,6 +84,43 @@ public class VoteFirestoreRepository {
           .addOnFailureListener(callback::onFailure);
     }
 
+    /**
+     * Starts a real-time listener for all votes on a report.
+     *
+     * @param reportId The ID of the report.
+     * @param callback The callback to return the list of ReportVote objects.
+     * @return The ListenerRegistration to allow unregistering.
+     */
+    public com.google.firebase.firestore.ListenerRegistration startVotesListener(String reportId, GetVotesCallback callback) {
+        if (reportId == null || reportId.isEmpty()) {
+            return null;
+        }
+
+        return db.collection("reports")
+          .document(reportId)
+          .collection("votes")
+          .addSnapshotListener((value, error) -> {
+              if (error != null) {
+                  callback.onFailure(error);
+                  return;
+              }
+              List<ReportVote> votes = new ArrayList<>();
+              if (value != null) {
+                  for (com.google.firebase.firestore.DocumentSnapshot document : value.getDocuments()) {
+                      try {
+                          ReportVote vote = document.toObject(ReportVote.class);
+                          if (vote != null) {
+                              votes.add(vote);
+                          }
+                      } catch (Exception e) {
+                          // Skip invalid documents safely
+                      }
+                  }
+              }
+              callback.onSuccess(votes);
+          });
+    }
+
     public interface GetCurrentUserVoteCallback {
         void onSuccess(ReportVote vote);
         void onFailure(Exception e);
@@ -120,5 +157,40 @@ public class VoteFirestoreRepository {
               }
           })
           .addOnFailureListener(callback::onFailure);
+    }
+
+    /**
+     * Starts a real-time listener for the current user's vote.
+     *
+     * @param reportId The ID of the report.
+     * @param userId The ID of the user.
+     * @param callback The callback to return the ReportVote or null.
+     * @return The ListenerRegistration to allow unregistering.
+     */
+    public com.google.firebase.firestore.ListenerRegistration startCurrentUserVoteListener(String reportId, String userId, GetCurrentUserVoteCallback callback) {
+        if (reportId == null || reportId.isEmpty() || userId == null || userId.isEmpty()) {
+            return null;
+        }
+
+        return db.collection("reports")
+          .document(reportId)
+          .collection("votes")
+          .document(userId)
+          .addSnapshotListener((documentSnapshot, error) -> {
+              if (error != null) {
+                  callback.onFailure(error);
+                  return;
+              }
+              if (documentSnapshot != null && documentSnapshot.exists()) {
+                  try {
+                      ReportVote vote = documentSnapshot.toObject(ReportVote.class);
+                      callback.onSuccess(vote);
+                  } catch (Exception e) {
+                      callback.onFailure(e);
+                  }
+              } else {
+                  callback.onSuccess(null);
+              }
+          });
     }
 }

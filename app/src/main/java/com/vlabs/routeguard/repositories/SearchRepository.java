@@ -27,7 +27,7 @@ public class SearchRepository extends BaseRepository {
             currentCall.cancel();
         }
 
-        currentCall = nominatimService.searchPlaces(query, "json", 1, 5); // Max 5 results
+        currentCall = nominatimService.searchPlaces(query, "json", 1, 10); // Max 10 results
         currentCall.enqueue(new Callback<List<PlaceSuggestion>>() {
             @Override
             public void onResponse(Call<List<PlaceSuggestion>> call, Response<List<PlaceSuggestion>> response) {
