@@ -121,7 +121,7 @@ RouteGuard uses OpenStreetMap Nominatim API for place search. Ensure custom user
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/vishvarajsinh/RouteGuardApp.git
+git clone https://github.com/Vlabs99/RouteGuard.git
 cd RouteGuardApp
 ```
 
@@ -173,7 +173,7 @@ cd RouteGuardApp
 - [ ] Offline report draft queueing with auto-sync upon reconnecting.
 - [ ] Voice-assisted hazard reporting hands-free mode.
 - [ ] Turn-by-turn navigation overlay integrated with hazard warnings.
-- [ ] Dark mode theme support.
+- [ ] AI-powered hazard prediction.
 
 ---
 
@@ -185,9 +185,9 @@ Distributed under the MIT License. See `LICENSE` for more details.
 
 ## 👨‍💻 Developer Information
 
-**Vishvarajsinh Chudasama**  
+**Vishwarajsinh Chudasama**  
 *Software Developer & MCA Student*  
-- **GitHub**: [github.com](https://github.com)  
+- **GitHub**: [github.com](https://github.com/Vlabs99)  
 - **LinkedIn**: [linkedin.com](https://linkedin.com)  
 
 ---
