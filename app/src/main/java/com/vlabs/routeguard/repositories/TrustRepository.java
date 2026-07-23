@@ -1,33 +1,15 @@
 package com.vlabs.routeguard.repositories;
 
+import com.vlabs.routeguard.managers.TrustManager;
+import com.vlabs.routeguard.models.RoadReport;
 import com.vlabs.routeguard.models.TrustScore;
+import com.vlabs.routeguard.models.VerificationStatus;
+import com.vlabs.routeguard.utils.TrustRules;
 
-/**
- * Domain repository for managing trust score operations.
- * Currently serves as a foundation for future data source integration.
- */
 public class TrustRepository {
 
     private final TrustFirestoreRepository firestoreRepository;
-
-    public TrustRepository() {
-        this.firestoreRepository = new TrustFirestoreRepository();
-    }
-
-    /**
-     * Saves a trust score.
-     * 
-     * @param trustScore The TrustScore object to save.
-     * @return true if the input is valid and structurally saved, false otherwise.
-     */
-    public boolean saveTrustScore(TrustScore trustScore) {
-        // Simple input validation
-        if (trustScore == null || trustScore.getUserId() == null || trustScore.getUserId().trim().isEmpty()) {
-            return false;
-        }
-        
-        return firestoreRepository.saveTrustScore(trustScore);
-    }
+    private final TrustManager trustManager;
 
     public interface GetTrustScoreCallback {
         void onSuccess(TrustScore trustScore);
@@ -37,6 +19,23 @@ public class TrustRepository {
     public interface ReadTrustScoreCallback {
         void onSuccess(TrustScore trustScore);
         void onFailure(Exception e);
+    }
+
+    public interface VoteSubmissionCallback {
+        void onSuccess(VerificationStatus newVerificationStatus);
+        void onError(String errorMsg);
+    }
+
+    public TrustRepository() {
+        this.firestoreRepository = new TrustFirestoreRepository();
+        this.trustManager = new TrustManager();
+    }
+
+    public boolean saveTrustScore(TrustScore trustScore) {
+        if (trustScore == null || trustScore.getUserId() == null || trustScore.getUserId().trim().isEmpty()) {
+            return false;
+        }
+        return firestoreRepository.saveTrustScore(trustScore);
     }
 
     public void readTrustScore(String userId, ReadTrustScoreCallback callback) {
@@ -53,26 +52,22 @@ public class TrustRepository {
         });
     }
 
-    /**
-     * Retrieves a trust score for a specific user.
-     * 
-     * @param userId The ID of the user whose trust score is being retrieved.
-     * @param callback The callback to return the computed TrustScore.
-     */
     public void getTrustScore(String userId, GetTrustScoreCallback callback) {
-        // Simple input validation
         if (userId == null || userId.trim().isEmpty()) {
             callback.onFailure(new IllegalArgumentException("Invalid user ID"));
             return;
         }
-        
+
         getTrustStatistics(userId, new TrustFirestoreRepository.GetTrustStatisticsCallback() {
             @Override
             public void onSuccess(int positiveVotes, int negativeVotes, int validReports, int invalidReports) {
-                com.vlabs.routeguard.managers.TrustManager trustManager = new com.vlabs.routeguard.managers.TrustManager();
                 TrustScore trustScore = trustManager.calculateTrustScore(positiveVotes, negativeVotes, validReports, invalidReports);
                 trustScore.setUserId(userId);
                 saveTrustScore(trustScore);
+
+                String level = trustManager.calculateUserLevel(trustScore.getScore());
+                firestoreRepository.updateUserProfileTrust(userId, trustScore.getScore(), level, null);
+
                 callback.onSuccess(trustScore);
             }
 
@@ -85,5 +80,53 @@ public class TrustRepository {
 
     public void getTrustStatistics(String userId, TrustFirestoreRepository.GetTrustStatisticsCallback callback) {
         firestoreRepository.getTrustStatistics(userId, callback);
+    }
+
+    /**
+     * Processes a vote on a report while enforcing self-voting checks and updating report verification and reporter trust.
+     */
+    public void processReportVote(RoadReport report, String currentUserId, boolean isStillExistsVote, VoteSubmissionCallback callback) {
+        if (report == null || report.getReportId() == null) {
+            callback.onError("Invalid report.");
+            return;
+        }
+
+        // Protection against self-voting in Repository layer (Refinement #4)
+        if (!trustManager.canUserVote(currentUserId, report.getReporterId())) {
+            callback.onError("You cannot vote on your own report.");
+            return;
+        }
+
+        int currentPos = report.getUpvotes() + (isStillExistsVote ? 1 : 0);
+        int currentNeg = report.getDownvotes() + (!isStillExistsVote ? 1 : 0);
+
+        VerificationStatus newStatus = trustManager.calculateReportVerificationStatus(report, currentPos, currentNeg);
+        report.setVerificationStatus(newStatus);
+
+        firestoreRepository.updateReportVerificationStatus(report.getReportId(), newStatus, new TrustFirestoreRepository.SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                // Update creator trust score if reporterId exists
+                if (report.getReporterId() != null && !report.getReporterId().isEmpty()) {
+                    recalculateUserTrust(report.getReporterId());
+                }
+                callback.onSuccess(newStatus);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                callback.onError("Failed to update report verification status: " + e.getMessage());
+            }
+        });
+    }
+
+    public void recalculateUserTrust(String userId) {
+        if (userId == null || userId.trim().isEmpty()) return;
+        getTrustScore(userId, new GetTrustScoreCallback() {
+            @Override
+            public void onSuccess(TrustScore trustScore) {}
+            @Override
+            public void onFailure(Exception e) {}
+        });
     }
 }

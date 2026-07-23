@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
 import com.google.gson.Gson;
+import com.vlabs.routeguard.managers.TravelModeManager;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import android.content.SharedPreferences;
@@ -122,12 +123,142 @@ public class HomeActivity extends BaseActivity {
         setupSearch();
         setupMarkers();
         setupTravelMode();
+        setupDrawer();
+        setupNotificationBadge();
         
         binding.fabLocation.setOnClickListener(v -> handleLocationClick());
         binding.fabReport.setOnClickListener(v -> handleReportClick());
         binding.btnProfile.setOnClickListener(v -> handleProfileClick());
+        if (binding.btnNotification != null) {
+            binding.btnNotification.setOnClickListener(v -> {
+                Intent intent = new Intent(HomeActivity.this, com.vlabs.routeguard.notifications.NotificationActivity.class);
+                startActivity(intent);
+            });
+        }
         
         handleLocationClick();
+        checkIntentForReport(getIntent());
+
+        if (!NetworkUtils.isNetworkAvailable(this)) {
+            com.vlabs.routeguard.utils.SnackbarUtils.showWarning(binding.getRoot(), "📡 You're offline. Reconnect to receive live updates.");
+        }
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+    }
+
+    private void setupDrawer() {
+        androidx.drawerlayout.widget.DrawerLayout drawerLayout = findViewById(R.id.drawerLayout);
+        com.google.android.material.navigation.NavigationView navigationView = findViewById(R.id.navigationView);
+        com.google.android.material.appbar.MaterialToolbar topAppBar = findViewById(R.id.topAppBar);
+
+        if (navigationView != null) {
+            navigationView.getMenu().clear();
+            navigationView.inflateMenu(R.menu.menu_drawer);
+        }
+
+        androidx.appcompat.app.ActionBarDrawerToggle toggle = new androidx.appcompat.app.ActionBarDrawerToggle(
+                this, drawerLayout, topAppBar, R.string.app_name, R.string.app_name);
+        drawerLayout.addDrawerListener(toggle);
+        toggle.syncState();
+
+        navigationView.setNavigationItemSelectedListener(item -> {
+            drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START);
+            int id = item.getItemId();
+            if (id == R.id.nav_home) {
+                // Close drawer only
+            } else if (id == R.id.nav_my_reports) {
+                Intent intent = new Intent(HomeActivity.this, com.vlabs.routeguard.activities.MyReportsActivity.class);
+                startActivity(intent);
+            } else if (id == R.id.nav_settings) {
+                Intent intent = new Intent(HomeActivity.this, com.vlabs.routeguard.settings.SettingsActivity.class);
+                startActivity(intent);
+            } else if (id == R.id.nav_about) {
+                Intent intent = new Intent(HomeActivity.this, com.vlabs.routeguard.settings.AboutActivity.class);
+                startActivity(intent);
+            } else if (id == R.id.nav_logout) {
+                handleLogoutClick();
+            }
+            return true;
+        });
+    }
+
+    private void handleLogoutClick() {
+        if (isFinishing() || isDestroyed()) return;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Logout")
+                .setMessage("Are you sure you want to log out of RouteGuard?")
+                .setPositiveButton("Logout", (dialog, which) -> {
+                    Context appContext = getApplicationContext() != null ? getApplicationContext() : this;
+                    SessionManager.getInstance().logout(appContext);
+                    try {
+                        Intent intent = new Intent(appContext, com.vlabs.routeguard.authentication.AuthenticationActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        appContext.startActivity(intent);
+                    } catch (Exception e) {
+                        android.util.Log.e("HomeActivity", "Error navigating to AuthenticationActivity during logout", e);
+                    }
+                    if (!isFinishing()) {
+                        finish();
+                    }
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        checkIntentForReport(intent);
+    }
+
+    private void checkIntentForReport(Intent intent) {
+        if (intent != null) {
+            String reportId = null;
+            if (intent.hasExtra(IntentConstants.EXTRA_REPORT_ID)) {
+                reportId = intent.getStringExtra(IntentConstants.EXTRA_REPORT_ID);
+            } else if (intent.hasExtra("reportId")) {
+                reportId = intent.getStringExtra("reportId");
+            } else if (intent.hasExtra("open_report_id")) {
+                reportId = intent.getStringExtra("open_report_id");
+            }
+            if (reportId != null && !reportId.trim().isEmpty()) {
+                final String finalReportId = reportId.trim();
+                double userLat = Double.NaN;
+                double userLon = Double.NaN;
+                if (homeViewModel != null && homeViewModel.getCurrentLocation() != null && homeViewModel.getCurrentLocation().getValue() != null) {
+                    org.osmdroid.util.GeoPoint loc = homeViewModel.getCurrentLocation().getValue();
+                    userLat = loc.getLatitude();
+                    userLon = loc.getLongitude();
+                }
+                if (isFinishing() || isDestroyed()) return;
+                java.util.ArrayList<String> ids = new java.util.ArrayList<>();
+                ids.add(finalReportId);
+                com.vlabs.routeguard.fragments.ReportDetailsBottomSheet bottomSheet = com.vlabs.routeguard.fragments.ReportDetailsBottomSheet.newInstance(ids, userLat, userLon);
+                bottomSheet.show(getSupportFragmentManager(), "ReportDetailsBottomSheet");
+
+                // Center map on report coordinates if report details can be fetched
+                new com.vlabs.routeguard.repositories.ReportRepository().fetchReportById(finalReportId, new com.vlabs.routeguard.repositories.ReportRepository.SingleReportCallback() {
+                    @Override
+                    public void onSuccess(RoadReport report) {
+                        if (report != null && map != null && !isFinishing() && !isDestroyed()) {
+                            runOnUiThread(() -> {
+                                if (map != null && map.getController() != null && !isFinishing() && !isDestroyed()) {
+                                    map.getController().animateTo(new org.osmdroid.util.GeoPoint(report.getLatitude(), report.getLongitude()));
+                                }
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void onError(String error) {}
+                });
+            }
+        }
     }
 
     private void handleReportClick() {
@@ -161,6 +292,13 @@ public class HomeActivity extends BaseActivity {
     }
 
     private void handleProfileClick() {
+        if (!SessionManager.getInstance().isLoggedIn()) {
+            com.vlabs.routeguard.utils.DialogUtils.showLoginRequiredDialog(this, () -> {
+                Intent intent = new Intent(HomeActivity.this, com.vlabs.routeguard.authentication.AuthenticationActivity.class);
+                startActivity(intent);
+            });
+            return;
+        }
         new com.vlabs.routeguard.fragments.ProfileBottomSheet().show(getSupportFragmentManager(), "ProfileBottomSheet");
     }
 
@@ -197,10 +335,19 @@ public class HomeActivity extends BaseActivity {
         rvSuggestions.setLayoutManager(new LinearLayoutManager(this));
         rvSuggestions.setAdapter(placesAdapter);
         
-        // Add Filter button to MaterialToolbar
-        com.google.android.material.appbar.MaterialToolbar topAppBar = findViewById(R.id.topAppBar);
-        topAppBar.setOnMenuItemClickListener(item -> {
-            // Alternatively handle via a direct button. Since we removed ivFilter, let's just trigger it from the profile/notification layout
+        searchBar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_filter) {
+                com.vlabs.routeguard.fragments.FiltersBottomSheet bottomSheet = com.vlabs.routeguard.fragments.FiltersBottomSheet.newInstance(
+                        homeViewModel.getSelectedCategories().getValue(),
+                        calculateCategoryCounts()
+                );
+                bottomSheet.setFilterListener(categories -> {
+                    filterPreferences.saveFilters(categories);
+                    homeViewModel.setSelectedCategories(categories);
+                });
+                bottomSheet.show(getSupportFragmentManager(), "FiltersBottomSheet");
+                return true;
+            }
             return false;
         });
         
@@ -280,19 +427,28 @@ public class HomeActivity extends BaseActivity {
         });
 
         homeViewModel.getCurrentLocation().observe(this, point -> {
-            if (point != null) {
+            if (point != null && mapManager != null && map != null && !isFinishing() && !isDestroyed()) {
                 mapManager.setCurrentLocationMarker(this, point);
                 Double radius = homeViewModel.getActiveRadiusKm().getValue();
                 mapManager.setLocationAndRadius(point, radius != null ? radius : 5.0);
                 
-                if (isTravelModeON) {
-                    checkNearbyReports(point);
+                if (TravelModeManager.getInstance().isTravelModeActive(this)) {
+                    String currentUserId = SessionManager.getInstance().getCurrentUser() != null
+                            ? SessionManager.getInstance().getCurrentUser().getUid()
+                            : "";
+                    TravelModeManager.getInstance().evaluateAndNotifyReports(
+                            this,
+                            point.getLatitude(),
+                            point.getLongitude(),
+                            homeViewModel.getRoadReports().getValue(),
+                            currentUserId
+                    );
                 }
             }
         });
 
         homeViewModel.getActiveRadiusKm().observe(this, radius -> {
-            if (radius != null) {
+            if (radius != null && mapManager != null && !isFinishing() && !isDestroyed()) {
                 GeoPoint point = homeViewModel.getCurrentLocation().getValue();
                 mapManager.setLocationAndRadius(point, radius);
             }
@@ -353,22 +509,47 @@ public class HomeActivity extends BaseActivity {
         saveSearchHistory(history);
     }
 
-    
+    private java.util.Map<String, Integer> calculateCategoryCounts() {
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        for (ReportType type : ReportType.values()) {
+            counts.put(type.name(), 0);
+        }
+        if (homeViewModel != null && homeViewModel.getRoadReports() != null && homeViewModel.getRoadReports().getValue() != null) {
+            List<RoadReport> reports = homeViewModel.getRoadReports().getValue();
+            long now = System.currentTimeMillis();
+            for (RoadReport report : reports) {
+                if (report != null && report.getType() != null) {
+                    boolean isExpired = report.getExpiresAt() > 0 && now >= report.getExpiresAt();
+                    if (!isExpired) {
+                        String catName = report.getType().name();
+                        counts.put(catName, counts.getOrDefault(catName, 0) + 1);
+                    }
+                }
+            }
+        }
+        return counts;
+    }
+
     private void setupMarkers() {
-        mapManager.setOnReportClickListener(reportId -> {
+        mapManager.setOnReportClickListener(reportIds -> {
+            if (isFinishing() || isDestroyed()) return;
             org.osmdroid.util.GeoPoint currentLoc = homeViewModel.getCurrentLocation().getValue();
             double userLat = currentLoc != null ? currentLoc.getLatitude() : Double.NaN;
             double userLon = currentLoc != null ? currentLoc.getLongitude() : Double.NaN;
-            ReportDetailsBottomSheet bottomSheet = ReportDetailsBottomSheet.newInstance(reportId, userLat, userLon);
+            ReportDetailsBottomSheet bottomSheet = ReportDetailsBottomSheet.newInstance(new java.util.ArrayList<>(reportIds), userLat, userLon);
             bottomSheet.show(getSupportFragmentManager(), "ReportDetailsBottomSheet");
         });
 
         homeViewModel.getRoadReports().observe(this, reports -> {
-            mapManager.setReports(reports);
+            if (mapManager != null && !isFinishing() && !isDestroyed()) {
+                mapManager.setReports(reports);
+            }
         });
 
         homeViewModel.getSelectedCategories().observe(this, categories -> {
-            mapManager.setFilters(categories);
+            if (mapManager != null && !isFinishing() && !isDestroyed()) {
+                mapManager.setFilters(categories);
+            }
         });
 
         homeViewModel.startRoadReportsListener();
@@ -383,6 +564,7 @@ public class HomeActivity extends BaseActivity {
     }
     
     private void animateCameraToSuggestion(PlaceSuggestion suggestion) {
+        if (isFinishing() || isDestroyed() || map == null || mapManager == null) return;
         try {
             double lat = Double.parseDouble(suggestion.getLat());
             double lon = Double.parseDouble(suggestion.getLon());
@@ -394,6 +576,8 @@ public class HomeActivity extends BaseActivity {
             mapManager.animateTo(point, targetZoom, 800L); // 800ms smooth animation
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Invalid location coordinates", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            android.util.Log.e("HomeActivity", "Error animating camera", e);
         }
     }
     
@@ -415,6 +599,7 @@ public class HomeActivity extends BaseActivity {
 
             @Override
             public boolean longPressHelper(GeoPoint p) {
+                if (isFinishing() || isDestroyed()) return true;
                 if (!SessionManager.getInstance().isLoggedIn()) {
                     LoginRequiredBottomSheet.newInstance().show(getSupportFragmentManager(), "LoginRequiredBottomSheet");
                     return true;
@@ -465,8 +650,9 @@ public class HomeActivity extends BaseActivity {
         userLocationManager.checkAndFetchLocation(new UserLocationManager.LocationCallback() {
             @Override
             public void onLocationFound(GeoPoint point) {
+                if (isFinishing() || isDestroyed()) return;
                 homeViewModel.setCurrentLocation(point);
-                if (!hasCenteredOnUser) {
+                if (!hasCenteredOnUser && mapManager != null) {
                     mapManager.animateTo(point, 17.0, 1000L);
                     hasCenteredOnUser = true;
                 }
@@ -474,17 +660,20 @@ public class HomeActivity extends BaseActivity {
 
             @Override
             public void onLocationError(String error) {
+                if (isFinishing() || isDestroyed()) return;
                 Toast.makeText(HomeActivity.this, error, Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onGpsDisabled() {
+                if (isFinishing() || isDestroyed()) return;
                 showGpsBottomSheet();
             }
         });
     }
 
     private void showGpsBottomSheet() {
+        if (isFinishing() || isDestroyed()) return;
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this);
         bottomSheetDialog.setContentView(R.layout.bottom_sheet_gps);
 
@@ -521,9 +710,56 @@ public class HomeActivity extends BaseActivity {
         }
     }
     
+    private com.google.firebase.firestore.ListenerRegistration unreadNotificationListener;
+
+    private void setupNotificationBadge() {
+        android.widget.TextView tvBadge = findViewById(R.id.badgeNotification);
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            if (tvBadge != null) tvBadge.setVisibility(View.GONE);
+            return;
+        }
+
+        if (unreadNotificationListener != null) {
+            unreadNotificationListener.remove();
+        }
+
+        unreadNotificationListener = new com.vlabs.routeguard.repositories.NotificationRepository().listenToUnreadCount(currentUser.getUid(), new com.vlabs.routeguard.repositories.NotificationRepository.UnreadCountCallback() {
+            @Override
+            public void onSuccess(int unreadCount) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (tvBadge != null) {
+                        if (unreadCount > 0) {
+                            tvBadge.setText(unreadCount > 99 ? "99+" : String.valueOf(unreadCount));
+                            tvBadge.setVisibility(View.VISIBLE);
+                        } else {
+                            tvBadge.setVisibility(View.GONE);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String errorMsg) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (tvBadge != null) tvBadge.setVisibility(View.GONE);
+                });
+            }
+        });
+    }
+
     @Override
     protected void onDestroy() {
-        super.onDestroy();
+        if (unreadNotificationListener != null) {
+            unreadNotificationListener.remove();
+            unreadNotificationListener = null;
+        }
+        if (mapManager != null) {
+            mapManager.destroy();
+            mapManager = null;
+        }
         if (map != null) {
             map.onDetach(); // Clean up to avoid memory leaks
         }
@@ -536,84 +772,65 @@ public class HomeActivity extends BaseActivity {
         if (searchHandler != null && searchRunnable != null) {
             searchHandler.removeCallbacks(searchRunnable);
         }
+        super.onDestroy();
     }
 
     private void setupTravelMode() {
-        travelPrefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         switchTravelMode = binding.switchTravelMode;
         if (switchTravelMode == null) {
             switchTravelMode = findViewById(R.id.switchTravelMode);
         }
-        createNotificationChannel();
-        checkTravelModeExpiry();
+
+        TravelModeManager travelManager = TravelModeManager.getInstance();
+        boolean isActive = travelManager.isTravelModeActive(this);
+        updateTravelModeCardUI();
 
         if (switchTravelMode != null) {
             switchTravelMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 if (isChecked) {
-                    enableTravelMode();
+                    travelManager.enableTravelMode(this);
+                    updateTravelModeCardUI();
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+                        }
+                    }
+                    startTravelModeLocationUpdates();
                 } else {
-                    disableTravelMode();
+                    travelManager.disableTravelMode(this);
+                    updateTravelModeCardUI();
+                    if (userLocationManager != null) {
+                        userLocationManager.stopLocationUpdates();
+                    }
                 }
             });
         }
+
+        if (isActive) {
+            startTravelModeLocationUpdates();
+        }
     }
 
-    private void checkTravelModeExpiry() {
-        isTravelModeON = travelPrefs.getBoolean(PREF_IS_TRAVEL_MODE, false);
-        long expiryTime = travelPrefs.getLong(PREF_EXPIRY_TIME, 0);
-
-        if (isTravelModeON) {
-            if (System.currentTimeMillis() > expiryTime) {
-                disableTravelMode();
+    private void updateTravelModeCardUI() {
+        TravelModeManager travelManager = TravelModeManager.getInstance();
+        boolean isActive = travelManager.isTravelModeActive(this);
+        if (switchTravelMode != null) {
+            switchTravelMode.setChecked(isActive);
+            switchTravelMode.setText(isActive ? "Travel Mode: ON" : "Travel Mode: OFF");
+        }
+        android.widget.TextView tvTimer = findViewById(R.id.tvTravelModeTimer);
+        if (tvTimer != null) {
+            if (isActive) {
+                long remainingMs = travelManager.getTravelModeExpiresAt(this) - System.currentTimeMillis();
+                long mins = Math.max(0, remainingMs / (60 * 1000L));
+                long hours = mins / 60;
+                long remMins = mins % 60;
+                tvTimer.setText(String.format(java.util.Locale.getDefault(), "%dh %02dm left", hours, remMins));
+                tvTimer.setVisibility(View.VISIBLE);
             } else {
-                if (switchTravelMode != null) {
-                    switchTravelMode.setChecked(true);
-                    switchTravelMode.setText("Travel Mode: ON");
-                }
-                startTravelModeLocationUpdates();
+                tvTimer.setVisibility(View.GONE);
             }
-        } else {
-            if (switchTravelMode != null) {
-                switchTravelMode.setChecked(false);
-                switchTravelMode.setText("Travel Mode: OFF");
-            }
-        }
-    }
-
-    private void enableTravelMode() {
-        isTravelModeON = true;
-        long expiryTime = System.currentTimeMillis() + TRAVEL_MODE_DURATION_MS;
-        travelPrefs.edit()
-            .putBoolean(PREF_IS_TRAVEL_MODE, true)
-            .putLong(PREF_EXPIRY_TIME, expiryTime)
-            .apply();
-        
-        if (switchTravelMode != null) {
-            switchTravelMode.setText("Travel Mode: ON");
-        }
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
-            }
-        }
-
-        startTravelModeLocationUpdates();
-    }
-
-    private void disableTravelMode() {
-        isTravelModeON = false;
-        travelPrefs.edit()
-            .putBoolean(PREF_IS_TRAVEL_MODE, false)
-            .remove(PREF_EXPIRY_TIME)
-            .apply();
-        
-        if (switchTravelMode != null) {
-            switchTravelMode.setChecked(false);
-            switchTravelMode.setText("Travel Mode: OFF");
-        }
-        if (userLocationManager != null) {
-            userLocationManager.stopLocationUpdates();
         }
     }
 
@@ -622,110 +839,52 @@ public class HomeActivity extends BaseActivity {
             userLocationManager.startLocationUpdates(new UserLocationManager.LocationCallback() {
                 @Override
                 public void onLocationFound(GeoPoint point) {
+                    if (isFinishing() || isDestroyed()) return;
+                    TravelModeManager travelManager = TravelModeManager.getInstance();
+                    if (!travelManager.isTravelModeActive(HomeActivity.this)) {
+                        updateTravelModeCardUI();
+                        if (userLocationManager != null) {
+                            userLocationManager.stopLocationUpdates();
+                        }
+                        return;
+                    }
+
+                    updateTravelModeCardUI();
+
                     homeViewModel.setCurrentLocation(point);
-                    if (!hasCenteredOnUser) {
+                    if (!hasCenteredOnUser && mapManager != null) {
                         mapManager.animateTo(point, 17.0, 1000L);
                         hasCenteredOnUser = true;
                     }
+
+                    // Foreground monitoring while app is open (Refinement #1)
+                    String currentUserId = SessionManager.getInstance().getCurrentUser() != null
+                            ? SessionManager.getInstance().getCurrentUser().getUid()
+                            : "";
+                    travelManager.evaluateAndNotifyReports(
+                            HomeActivity.this,
+                            point.getLatitude(),
+                            point.getLongitude(),
+                            homeViewModel.getRoadReports().getValue(),
+                            currentUserId
+                    );
                 }
+
                 @Override
                 public void onLocationError(String error) {
-                    // Silent ignore or small toast
                 }
+
                 @Override
                 public void onGpsDisabled() {
+                    if (isFinishing() || isDestroyed()) return;
                     showGpsBottomSheet();
                 }
             }, 5000); // 5 seconds interval
         } else {
             locationPermissionRequest.launch(new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
             });
         }
-    }
-
-    private void checkNearbyReports(GeoPoint currentLoc) {
-        List<RoadReport> reports = homeViewModel.getRoadReports().getValue();
-        if (reports == null || reports.isEmpty()) return;
-
-        long currentTime = System.currentTimeMillis();
-
-        for (RoadReport report : reports) {
-            if (report.getExpiresAt() <= currentTime) continue;
-
-            float[] results = new float[1];
-            android.location.Location.distanceBetween(currentLoc.getLatitude(), currentLoc.getLongitude(), report.getLatitude(), report.getLongitude(), results);
-            float distanceMeters = results[0];
-
-            if (distanceMeters <= 500) {
-                Long lastNotified = lastNotificationTimestamp.get(report.getReportId());
-                if (lastNotified == null || (currentTime - lastNotified > NOTIFICATION_COOLDOWN_MS)) {
-                    if (sendNearbyNotification(report, distanceMeters)) {
-                        lastNotificationTimestamp.put(report.getReportId(), currentTime);
-                    }
-                }
-            }
-        }
-    }
-
-    private boolean sendNearbyNotification(RoadReport report, float distanceMeters) {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            return false;
-        }
-
-        String title = getNotificationTitleForType(report.getType());
-        String body = String.format(java.util.Locale.getDefault(), "Report detected %.0f meters ahead. Tap to open RouteGuard.", distanceMeters);
-
-        Intent intent = new Intent(this, HomeActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        intent.putExtra("open_report_id", report.getReportId());
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, report.getReportId().hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_report)
-                .setContentTitle(title)
-                .setContentText(body)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true);
-
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
-        notificationManager.notify(report.getReportId().hashCode(), builder.build());
-        return true;
-    }
-
-    private String getNotificationTitleForType(ReportType type) {
-        switch (type) {
-            case POLICE_CHECKING: return "Police Checking Ahead";
-            case ACCIDENT: return "Accident Ahead";
-            case ROAD_CONSTRUCTION: return "Construction Ahead";
-            case HEAVY_TRAFFIC: return "Heavy Traffic Ahead";
-            case ANIMAL_ON_ROAD: return "Animal on Road Ahead";
-            case WATER_LOGGING: return "Water Logging Ahead";
-            default: return "Road Block Ahead";
-        }
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = "Travel Mode Alerts";
-            String description = "Notifications for nearby reports while in Travel Mode";
-            int importance = NotificationManager.IMPORTANCE_HIGH;
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-            channel.setDescription(description);
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
-            }
-        }
-    }
-    
-    @Override
-    protected void onDestroy() {
-        if (mapManager != null) {
-            mapManager.destroy();
-        }
-        super.onDestroy();
     }
 }

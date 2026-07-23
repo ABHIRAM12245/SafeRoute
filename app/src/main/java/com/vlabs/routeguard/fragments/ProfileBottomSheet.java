@@ -8,7 +8,9 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import android.widget.ProgressBar;
 import android.widget.TextView;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.firebase.auth.FirebaseAuth;
@@ -121,13 +123,27 @@ public class ProfileBottomSheet extends BottomSheetDialogFragment {
                     tvReputation.setText("Reputation: " + user.getReputationScore());
                 }
 
+                TextView tvUserLevel = getView() != null ? getView().findViewById(R.id.tvUserLevel) : null;
+                if (tvUserLevel != null) {
+                    String levelStr = user.getUserLevel();
+                    if (levelStr == null || levelStr.isEmpty()) {
+                        levelStr = new com.vlabs.routeguard.managers.TrustManager().calculateUserLevel(user.getTrustScore());
+                    }
+                    tvUserLevel.setText("Level: " + levelStr);
+                }
+
                 android.widget.ImageView ivProfilePhoto = getView() != null ? getView().findViewById(R.id.ivProfilePhoto) : null;
-                if (ivProfilePhoto != null && user.getPhotoUrl() != null && !user.getPhotoUrl().isEmpty()) {
-                    com.bumptech.glide.Glide.with(ProfileBottomSheet.this)
-                         .load(user.getPhotoUrl())
-                         .placeholder(ivProfilePhoto.getDrawable())
-                         .error(ivProfilePhoto.getDrawable())
-                         .into(ivProfilePhoto);
+                if (ivProfilePhoto != null) {
+                    if (user.getPhotoUrl() != null && !user.getPhotoUrl().isEmpty()) {
+                        com.bumptech.glide.Glide.with(ProfileBottomSheet.this)
+                             .load(user.getPhotoUrl())
+                             .placeholder(R.drawable.ic_person)
+                             .error(R.drawable.ic_person)
+                             .into(ivProfilePhoto);
+                    } else {
+                        ivProfilePhoto.setImageResource(R.drawable.ic_person);
+                        ivProfilePhoto.setColorFilter(ContextCompat.getColor(requireContext(), R.color.rg_primary));
+                    }
                 }
             }
 
@@ -138,13 +154,25 @@ public class ProfileBottomSheet extends BottomSheetDialogFragment {
         });
 
         com.vlabs.routeguard.repositories.TrustRepository trustRepository = new com.vlabs.routeguard.repositories.TrustRepository();
-        trustRepository.readTrustScore(currentUser.getUid(), new com.vlabs.routeguard.repositories.TrustRepository.ReadTrustScoreCallback() {
+        trustRepository.getTrustScore(currentUser.getUid(), new com.vlabs.routeguard.repositories.TrustRepository.GetTrustScoreCallback() {
             @Override
             public void onSuccess(com.vlabs.routeguard.models.TrustScore trustScore) {
                 if (getActivity() == null || !isAdded()) return;
                 TextView tvTrustScore = getView() != null ? getView().findViewById(R.id.tvTrustScore) : null;
-                if (tvTrustScore != null && trustScore != null) {
-                    tvTrustScore.setText("Trust Score: " + trustScore.getScore() + " / 100");
+                TextView tvUserLevel = getView() != null ? getView().findViewById(R.id.tvUserLevel) : null;
+                ProgressBar pbTrustScore = getView() != null ? getView().findViewById(R.id.pbTrustScore) : null;
+
+                if (trustScore != null) {
+                    if (tvTrustScore != null) {
+                        tvTrustScore.setText("Trust Score: " + trustScore.getScore() + " / 100");
+                    }
+                    if (pbTrustScore != null) {
+                        pbTrustScore.setProgress(Math.max(0, Math.min(100, trustScore.getScore())));
+                    }
+                    if (tvUserLevel != null) {
+                        String level = new com.vlabs.routeguard.managers.TrustManager().calculateUserLevel(trustScore.getScore());
+                        tvUserLevel.setText("Level: " + level);
+                    }
                 }
             }
 
@@ -166,14 +194,32 @@ public class ProfileBottomSheet extends BottomSheetDialogFragment {
                 TextView tvBehaviorStatus = getView() != null ? getView().findViewById(R.id.tvBehaviorStatus) : null;
                 if (tvBehaviorStatus != null && result != null && result.getRiskLevel() != null) {
                     String statusText = "Behavior: --";
+                    int statusColor = ContextCompat.getColor(requireContext(), R.color.rg_primary); // Default Safety Green
+
                     switch (result.getRiskLevel()) {
-                        case NORMAL: statusText = "Behavior: Normal"; break;
-                        case LOW: statusText = "Behavior: Low Risk"; break;
-                        case MEDIUM: statusText = "Behavior: Medium Risk"; break;
-                        case HIGH: statusText = "Behavior: High Risk"; break;
-                        case CRITICAL: statusText = "Behavior: Critical"; break;
+                        case NORMAL:
+                            statusText = "Behavior: Normal";
+                            statusColor = ContextCompat.getColor(requireContext(), R.color.rg_primary);
+                            break;
+                        case LOW:
+                            statusText = "Behavior: Low Risk";
+                            statusColor = ContextCompat.getColor(requireContext(), R.color.rg_primary);
+                            break;
+                        case MEDIUM:
+                            statusText = "Behavior: Medium Risk";
+                            statusColor = ContextCompat.getColor(requireContext(), R.color.rg_tertiary);
+                            break;
+                        case HIGH:
+                            statusText = "Behavior: High Risk";
+                            statusColor = ContextCompat.getColor(requireContext(), android.R.color.holo_red_dark);
+                            break;
+                        case CRITICAL:
+                            statusText = "Behavior: Critical";
+                            statusColor = ContextCompat.getColor(requireContext(), android.R.color.holo_red_dark);
+                            break;
                     }
                     tvBehaviorStatus.setText(statusText);
+                    tvBehaviorStatus.setTextColor(statusColor);
                 }
             }
 

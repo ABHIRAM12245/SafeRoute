@@ -9,6 +9,7 @@ public class RoadReport {
     private long timestamp;
     private String reporterId;
     private long expiresAt;
+    private String imageUrl;
     
     // Aggregated fields for Confidence Engine
     private int upvotes = 0;
@@ -16,6 +17,9 @@ public class RoadReport {
     private int activeConfirmations = 0;
     private int goneConfirmations = 0;
     private int confidenceScore = 50;
+    private int commentCount = 0;
+    private String cloudinaryPublicId;
+    private VerificationStatus verificationStatus = VerificationStatus.UNVERIFIED;
 
     public RoadReport() {
         // Empty constructor for potential future Firestore usage
@@ -120,4 +124,20 @@ public class RoadReport {
 
     public int getConfidenceScore() { return confidenceScore; }
     public void setConfidenceScore(int confidenceScore) { this.confidenceScore = confidenceScore; }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public String getCloudinaryPublicId() { return cloudinaryPublicId; }
+    public void setCloudinaryPublicId(String cloudinaryPublicId) { this.cloudinaryPublicId = cloudinaryPublicId; }
+
+    public int getCommentCount() { return commentCount; }
+    public void setCommentCount(int commentCount) { this.commentCount = commentCount; }
+
+    public VerificationStatus getVerificationStatus() { return verificationStatus; }
+    public void setVerificationStatus(VerificationStatus verificationStatus) {
+        if (verificationStatus != null) {
+            this.verificationStatus = verificationStatus;
+        }
+    }
 }

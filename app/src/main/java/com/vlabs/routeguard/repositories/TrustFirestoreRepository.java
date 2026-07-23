@@ -1,58 +1,21 @@
 package com.vlabs.routeguard.repositories;
 
-import com.vlabs.routeguard.models.TrustScore;
-import com.google.firebase.firestore.FirebaseFirestore;
+import android.util.Log;
 
-/**
- * Firestore data layer for managing trust score operations.
- * Currently serves as a foundation for future remote database integration.
- */
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.vlabs.routeguard.models.TrustScore;
+import com.vlabs.routeguard.models.VerificationStatus;
+import com.vlabs.routeguard.utils.FirestoreCollections;
+
+import java.util.HashMap;
+import java.util.Map;
+
 public class TrustFirestoreRepository {
 
+    private static final String TAG = "TrustFirestoreRepo";
     private final FirebaseFirestore db;
-
-    public TrustFirestoreRepository() {
-        this.db = FirebaseFirestore.getInstance();
-    }
-
-    /**
-     * Prepares to save a trust score to the remote database.
-     * 
-     * @param trustScore The TrustScore object to save.
-     * @return true if the input is valid (stub successful save), false otherwise.
-     */
-    public boolean saveTrustScore(TrustScore trustScore) {
-        // Simple input validation
-        if (trustScore == null || trustScore.getUserId() == null || trustScore.getUserId().trim().isEmpty()) {
-            return false;
-        }
-        
-        try {
-            db.collection("trust_scores")
-              .document(trustScore.getUserId())
-              .set(trustScore);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /**
-     * Prepares to retrieve a trust score for a specific user from the remote database.
-     * 
-     * @param userId The ID of the user whose trust score is being retrieved.
-     * @return A stub TrustScore, or null if the user ID is invalid.
-     */
-    public TrustScore getTrustScore(String userId) {
-        // Simple input validation
-        if (userId == null || userId.trim().isEmpty()) {
-            return null;
-        }
-        
-        // TODO: Implement actual Firestore retrieval API logic here.
-        // Returning a stub value for now.
-        return new TrustScore(userId, 100, System.currentTimeMillis());
-    }
 
     public interface GetTrustStatisticsCallback {
         void onSuccess(int positiveVotes, int negativeVotes, int validReports, int invalidReports);
@@ -64,12 +27,77 @@ public class TrustFirestoreRepository {
         void onFailure(Exception e);
     }
 
+    public interface SimpleCallback {
+        void onSuccess();
+        void onFailure(Exception e);
+    }
+
+    public TrustFirestoreRepository() {
+        this.db = FirebaseFirestore.getInstance();
+    }
+
+    public boolean saveTrustScore(TrustScore trustScore) {
+        if (trustScore == null || trustScore.getUserId() == null || trustScore.getUserId().trim().isEmpty()) {
+            return false;
+        }
+
+        try {
+            db.collection("trust_scores")
+                    .document(trustScore.getUserId())
+                    .set(trustScore);
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving trust score", e);
+            return false;
+        }
+    }
+
+    public void updateUserProfileTrust(String userId, int trustScore, String userLevel, SimpleCallback callback) {
+        if (userId == null || userId.trim().isEmpty()) {
+            if (callback != null) callback.onFailure(new IllegalArgumentException("Invalid user ID"));
+            return;
+        }
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("trustScore", trustScore);
+        if (userLevel != null) {
+            updates.put("userLevel", userLevel);
+        }
+
+        db.collection("users").document(userId.trim())
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    if (callback != null) callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error updating user profile trust fields", e);
+                    if (callback != null) callback.onFailure(e);
+                });
+    }
+
+    public void updateReportVerificationStatus(String reportId, VerificationStatus status, SimpleCallback callback) {
+        if (reportId == null || reportId.trim().isEmpty() || status == null) {
+            if (callback != null) callback.onFailure(new IllegalArgumentException("Invalid parameters"));
+            return;
+        }
+
+        db.collection(FirestoreCollections.REPORTS).document(reportId.trim())
+                .update("verificationStatus", status.name())
+                .addOnSuccessListener(aVoid -> {
+                    if (callback != null) callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error updating report verification status", e);
+                    if (callback != null) callback.onFailure(e);
+                });
+    }
+
     public void readTrustScore(String userId, ReadTrustScoreCallback callback) {
         if (userId == null || userId.trim().isEmpty()) {
             callback.onFailure(new IllegalArgumentException("Invalid userId"));
             return;
         }
-        
+
         db.collection("trust_scores").document(userId).get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
@@ -88,11 +116,11 @@ public class TrustFirestoreRepository {
             return;
         }
 
-        com.google.android.gms.tasks.Task<com.google.firebase.firestore.QuerySnapshot> votesTask = db.collectionGroup("votes")
+        com.google.android.gms.tasks.Task<QuerySnapshot> votesTask = db.collectionGroup("votes")
                 .whereEqualTo("reportOwnerId", userId)
                 .get();
 
-        com.google.android.gms.tasks.Task<com.google.firebase.firestore.QuerySnapshot> reportsTask = db.collection("reports")
+        com.google.android.gms.tasks.Task<QuerySnapshot> reportsTask = db.collection(FirestoreCollections.REPORTS)
                 .whereEqualTo("reporterId", userId)
                 .get();
 
@@ -103,22 +131,22 @@ public class TrustFirestoreRepository {
             int invalidReports = 0;
 
             if (votesTask.isSuccessful() && votesTask.getResult() != null) {
-                for (com.google.firebase.firestore.DocumentSnapshot doc : votesTask.getResult().getDocuments()) {
+                for (DocumentSnapshot doc : votesTask.getResult().getDocuments()) {
                     String voteType = doc.getString("voteType");
-                    if ("UPVOTE".equals(voteType)) {
+                    if ("UPVOTE".equals(voteType) || "STILL_EXISTS".equals(voteType)) {
                         positiveVotes++;
-                    } else if ("DOWNVOTE".equals(voteType)) {
+                    } else if ("DOWNVOTE".equals(voteType) || "NOT_FOUND".equals(voteType)) {
                         negativeVotes++;
                     }
                 }
             }
 
             if (reportsTask.isSuccessful() && reportsTask.getResult() != null) {
-                for (com.google.firebase.firestore.DocumentSnapshot doc : reportsTask.getResult().getDocuments()) {
-                    String status = doc.getString("status");
-                    if ("RESOLVED".equals(status)) {
+                for (DocumentSnapshot doc : reportsTask.getResult().getDocuments()) {
+                    String vStatus = doc.getString("verificationStatus");
+                    if ("VERIFIED".equals(vStatus)) {
                         validReports++;
-                    } else if ("DISMISSED".equals(status)) {
+                    } else if ("DISPUTED".equals(vStatus)) {
                         invalidReports++;
                     }
                 }

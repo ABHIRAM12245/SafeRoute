@@ -1,5 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+
+    <!-- Material 3 Safety Palette Tokens -->
+    <!-- Primary Green -->
+    <color name="rg_primary">#059669</color>
+    <color name="rg_on_primary">#FFFFFF</color>
+    <color name="rg_primary_container">#D1FAE5</color>
+    <color name="rg_on_primary_container">#064E3B</color>
+
+    <!-- Secondary Blue -->
+    <color name="rg_secondary">#2563EB</color>
+    <color name="rg_on_secondary">#FFFFFF</color>
+    <color name="rg_secondary_container">#DBEAFE</color>
+    <color name="rg_on_secondary_container">#1E3A8A</color>
+
+    <!-- Tertiary Warning Orange -->
+    <color name="rg_tertiary">#D97706</color>
+    <color name="rg_on_tertiary">#FFFFFF</color>
+    <color name="rg_tertiary_container">#FEF3C7</color>
+    <color name="rg_on_tertiary_container">#78350F</color>
+
+    <!-- Neutral Surfaces & Contrast Text for Outdoor Readability -->
+    <color name="rg_surface">#FFFFFF</color>
+    <color name="rg_on_surface">#0F172A</color>
+    <color name="rg_surface_variant">#F8FAFC</color>
+    <color name="rg_on_surface_variant">#334155</color>
+    <color name="rg_outline">#CBD5E1</color>
+    <color name="rg_outline_variant">#E2E8F0</color>
 </resources>

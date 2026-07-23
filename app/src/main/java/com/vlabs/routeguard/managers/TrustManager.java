@@ -1,64 +1,88 @@
 package com.vlabs.routeguard.managers;
 
+import com.vlabs.routeguard.models.RoadReport;
 import com.vlabs.routeguard.models.TrustScore;
-import com.vlabs.routeguard.utils.TrustConfig;
+import com.vlabs.routeguard.models.VerificationStatus;
+import com.vlabs.routeguard.utils.TrustRules;
 
-/**
- * Foundation class for the Trust Score system.
- * Responsible for calculating and returning the user's trust score.
- * Future integration points: Voting, Report Verification, and Admin Actions.
- */
 public class TrustManager {
 
     private int currentTrustScore;
 
     public TrustManager() {
-        this.currentTrustScore = TrustConfig.DEFAULT_TRUST_SCORE;
+        this.currentTrustScore = TrustRules.DEFAULT_TRUST_SCORE;
     }
 
     /**
-     * Prepares the architecture for future trust score calculation.
-     * 
-     * @return A stub trust score value for this milestone.
+     * Validates whether a user can vote on a specific report.
+     * Prevents self-voting and invalid IDs.
      */
-    public int calculateTrustScore() {
-        // TODO: Implement real calculation based on Voting, Report Verification, and Admin Action.
-        return currentTrustScore;
+    public boolean canUserVote(String currentUserId, String reportOwnerId) {
+        if (currentUserId == null || currentUserId.trim().isEmpty()) {
+            return false;
+        }
+        if (reportOwnerId != null && reportOwnerId.trim().equals(currentUserId.trim())) {
+            return false; // Prevent self-voting
+        }
+        return true;
     }
 
     /**
-     * Returns the current trust score.
-     * 
-     * @return The current trust score.
+     * Calculates the verification status for a road report.
      */
-    public int getTrustScore() {
-        return currentTrustScore;
+    public VerificationStatus calculateReportVerificationStatus(RoadReport report, int positiveVotes, int negativeVotes) {
+        if (report == null) {
+            return VerificationStatus.UNVERIFIED;
+        }
+
+        // Expiration check
+        long now = System.currentTimeMillis();
+        if (report.getExpiresAt() > 0 && report.getExpiresAt() <= now) {
+            return VerificationStatus.EXPIRED;
+        }
+
+        int netVotes = positiveVotes - negativeVotes;
+        if (netVotes >= TrustRules.VERIFIED_VOTE_THRESHOLD) {
+            return VerificationStatus.VERIFIED;
+        } else if (negativeVotes - positiveVotes >= TrustRules.DISPUTED_VOTE_THRESHOLD) {
+            return VerificationStatus.DISPUTED;
+        }
+
+        return VerificationStatus.UNVERIFIED;
     }
 
     /**
-     * Calculates the trust score based on user metrics.
-     * 
-     * @param positiveVotes Number of upvotes.
-     * @param negativeVotes Number of downvotes.
-     * @param validReports Number of verified reports.
-     * @param invalidReports Number of rejected reports.
-     * @return A stubbed TrustScore model.
+     * Calculates user trust score based on user activity metrics using TrustRules constants.
      */
-    public TrustScore calculateTrustScore(
-        int positiveVotes,
-        int negativeVotes,
-        int validReports,
-        int invalidReports
-    ) {
-        int score = TrustConfig.DEFAULT_TRUST_SCORE
-                + (positiveVotes * TrustConfig.POSITIVE_VOTE)
-                - (negativeVotes * TrustConfig.NEGATIVE_VOTE_WEIGHT)
-                + (validReports * TrustConfig.VALID_REPORT_WEIGHT)
-                - (invalidReports * TrustConfig.INVALID_REPORT_WEIGHT);
+    public TrustScore calculateTrustScore(int positiveVotes, int negativeVotes, int validReports, int invalidReports) {
+        int score = TrustRules.DEFAULT_TRUST_SCORE
+                + (positiveVotes * TrustRules.UPVOTE_WEIGHT)
+                - (negativeVotes * TrustRules.DOWNVOTE_WEIGHT)
+                + (validReports * TrustRules.VERIFIED_REPORT_BONUS)
+                - (invalidReports * TrustRules.DISPUTED_REPORT_PENALTY);
 
-        score = Math.max(TrustConfig.MIN_TRUST_SCORE, Math.min(TrustConfig.MAX_TRUST_SCORE, score));
+        score = Math.max(TrustRules.MIN_TRUST_SCORE, Math.min(TrustRules.MAX_TRUST_SCORE, score));
         this.currentTrustScore = score;
 
         return new TrustScore(null, score, System.currentTimeMillis());
+    }
+
+    /**
+     * Computes the user level/rank string from a given trust score.
+     */
+    public String calculateUserLevel(int trustScore) {
+        if (trustScore <= TrustRules.THRESHOLD_NOVICE_MAX) {
+            return TrustRules.LEVEL_NOVICE;
+        } else if (trustScore <= TrustRules.THRESHOLD_CONTRIBUTOR_MAX) {
+            return TrustRules.LEVEL_CONTRIBUTOR;
+        } else if (trustScore <= TrustRules.THRESHOLD_TRUSTED_MAX) {
+            return TrustRules.LEVEL_TRUSTED;
+        } else {
+            return TrustRules.LEVEL_MASTER;
+        }
+    }
+
+    public int getTrustScore() {
+        return currentTrustScore;
     }
 }

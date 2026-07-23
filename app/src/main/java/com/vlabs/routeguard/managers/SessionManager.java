@@ -27,7 +27,27 @@ public class SessionManager {
         return authRepository.getCurrentUser();
     }
 
+    public void logout(android.content.Context context) {
+        if (context != null) {
+            try {
+                android.content.Context appContext = context.getApplicationContext();
+                TravelModeManager.getInstance().stopTravelModeOnLogout(appContext != null ? appContext : context);
+            } catch (Exception e) {
+                android.util.Log.e("SessionManager", "Error stopping TravelModeManager on logout", e);
+            }
+        }
+        try {
+            authRepository.logout();
+        } catch (Exception e) {
+            android.util.Log.e("SessionManager", "Error signing out", e);
+        }
+    }
+
     public void logout() {
-        authRepository.logout();
+        try {
+            authRepository.logout();
+        } catch (Exception e) {
+            android.util.Log.e("SessionManager", "Error signing out", e);
+        }
     }
 }

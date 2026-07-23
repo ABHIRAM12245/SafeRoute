@@ -1,8 +1,9 @@
 package com.vlabs.routeguard.viewmodels;
 
+import android.app.Application;
+import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModel;
 
 import com.vlabs.routeguard.managers.PhotoAttachmentManager;
 import com.vlabs.routeguard.models.PhotoAttachment;
@@ -15,7 +16,7 @@ import com.vlabs.routeguard.repositories.ReportRepository;
 import com.vlabs.routeguard.repositories.ReportCreationRepository;
 import java.util.List;
 
-public class ReportCreationViewModel extends ViewModel {
+public class ReportCreationViewModel extends AndroidViewModel {
 
     private final ReportCreationRepository repository;
     private final ReportRepository reportRepository;
@@ -29,8 +30,9 @@ public class ReportCreationViewModel extends ViewModel {
     private RoadReport duplicateReport = null;
     private float duplicateDistanceMeters = 0f;
 
-    public ReportCreationViewModel() {
-        this.repository = new ReportCreationRepository();
+    public ReportCreationViewModel(Application application) {
+        super(application);
+        this.repository = new ReportCreationRepository(application);
         this.reportRepository = new ReportRepository();
         this.currentDraft = new RoadReportDraft();
         this.photoAttachmentManager = new PhotoAttachmentManager();

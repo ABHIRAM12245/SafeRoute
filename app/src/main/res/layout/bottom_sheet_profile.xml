@@ -6,143 +6,350 @@
     android:layout_height="wrap_content"
     android:background="@drawable/bottom_sheet_background"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center_horizontal">
+    android:padding="20dp">
 
-    <View
-        android:layout_width="32dp"
-        android:layout_height="4dp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="16dp"
-        android:background="#E0E0E0" />
-
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="96dp"
-        android:layout_height="96dp"
-        android:layout_marginBottom="16dp"
-        app:cardCornerRadius="48dp"
-        app:cardElevation="0dp"
-        app:strokeWidth="0dp">
-
-        <ImageView
-            android:id="@+id/ivProfilePhoto"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:background="#E0E0E0"
-            tools:src="@tools:sample/avatars"
-            android:contentDescription="Profile Photo" />
-    </com.google.android.material.card.MaterialCardView>
-
-    <LinearLayout
-        android:id="@+id/layoutNameDisplay"
-        android:layout_width="wrap_content"
+    <!-- Top Drag Handle & Close Icon Bar -->
+    <FrameLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="4dp">
+        android:layout_marginBottom="8dp">
 
-        <TextView
-            android:id="@+id/tvDisplayName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:textColor="@color/black"
-            android:text="User Name" />
+        <View
+            android:layout_width="32dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center"
+            android:background="@color/rg_outline" />
 
         <ImageButton
-            android:id="@+id/btnEditName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_menu_edit"
+            android:id="@+id/btnClose"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="end|center_vertical"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:layout_marginStart="8dp"
-            android:contentDescription="Edit Name" />
-    </LinearLayout>
+            android:contentDescription="Close"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            app:tint="@color/rg_on_surface_variant" />
+    </FrameLayout>
 
+    <!-- Header: Avatar, Name & Role -->
     <LinearLayout
-        android:id="@+id/layoutEditName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:visibility="gone"
-        android:layout_marginBottom="4dp">
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/etDisplayName"
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="88dp"
+            android:layout_height="88dp"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="@color/rg_primary_container"
+            app:cardCornerRadius="44dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <ImageView
+                android:id="@+id/ivProfilePhoto"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Profile Photo"
+                android:scaleType="centerCrop"
+                tools:src="@tools:sample/avatars" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Name Display & Inline Edit Button -->
+        <LinearLayout
+            android:id="@+id/layoutNameDisplay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvDisplayName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/rg_on_surface"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                tools:text="User Name" />
+
+            <ImageButton
+                android:id="@+id/btnEditName"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Edit Name"
+                android:src="@android:drawable/ic_menu_edit"
+                app:tint="@color/rg_primary" />
+        </LinearLayout>
+
+        <!-- Edit Name Mode Form -->
+        <LinearLayout
+            android:id="@+id/layoutEditName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            android:layout_marginBottom="4dp">
+
+            <EditText
+                android:id="@+id/etDisplayName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Display Name"
+                android:inputType="textPersonName"
+                android:maxLines="1"
+                android:padding="10dp"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="@color/rg_on_surface" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSaveName"
+                style="@style/Widget.Material3.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:minHeight="40dp"
+                android:text="Save"
+                app:backgroundTint="@color/rg_primary"
+                app:cornerRadius="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCancelName"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:minHeight="40dp"
+                android:text="Cancel"
+                app:cornerRadius="12dp"
+                app:strokeColor="@color/rg_outline" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvEmail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="16dp"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="@color/rg_on_surface_variant"
+            android:textSize="14sp"
+            tools:text="user@example.com" />
+
+    </LinearLayout>
+
+    <!-- Featured Community Trust Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:cardBackgroundColor="#F0FDF4"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="2dp"
+        app:strokeColor="#D1FAE5"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="⭐ Community Trust"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="@color/rg_on_surface"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvUserLevel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/rg_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="Level: Trusted Contributor" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvTrustScore"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="@color/rg_primary"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                tools:text="Trust Score: 85 / 100" />
+
+            <!-- Trust Score Visual Progress Bar -->
+            <ProgressBar
+                android:id="@+id/pbTrustScore"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="8dp"
+                android:layout_marginTop="8dp"
+                android:max="100"
+                android:progress="50"
+                android:progressDrawable="@null"
+                android:progressTint="@color/rg_primary"
+                android:progressBackgroundTint="#D1FAE5" />
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Statistics Section Grid -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <!-- Stat Card 1: Behavior Status -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
             android:layout_weight="1"
-            android:inputType="textPersonName"
-            android:hint="Display Name"
-            android:maxLines="1" />
+            app:cardBackgroundColor="@color/rg_surface"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/rg_outline_variant"
+            app:strokeWidth="1dp">
 
-        <Button
-            android:id="@+id/btnSaveName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Save"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="12dp">
 
-        <Button
-            android:id="@+id/btnCancelName"
-            android:layout_width="wrap_content"
+                <TextView
+                    android:id="@+id/tvBehaviorStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/rg_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="Behavior: Normal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="System Behavior"
+                    android:textColor="@color/rg_on_surface_variant"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Stat Card 2: Reputation -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Cancel"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            app:cardBackgroundColor="@color/rg_surface"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/rg_outline_variant"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/tvReputation"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/rg_secondary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="Reputation: 120" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Community Rep"
+                    android:textColor="@color/rg_on_surface_variant"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
     </LinearLayout>
 
+    <!-- Achievements Header & Badges Container -->
     <TextView
-        android:id="@+id/tvEmail"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:textColor="#757575"
-        android:text="user@example.com"
-        android:layout_marginBottom="24dp" />
-
-    <TextView
-        android:id="@+id/tvTrustScore"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:textColor="#424242"
-        android:text="Trust Score: --"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:id="@+id/tvBehaviorStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:textColor="#424242"
-        android:text="Behavior: --"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:id="@+id/tvReputation"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:textColor="#424242"
-        android:text="Reputation: --"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="8dp"
+        android:text="🏆 Community Achievements"
+        android:textAppearance="?attr/textAppearanceTitleMedium"
+        android:textColor="@color/rg_on_surface"
+        android:textStyle="bold" />
 
     <LinearLayout
         android:id="@+id/layoutBadges"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="24dp">
-    </LinearLayout>
+        android:layout_marginBottom="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnClose"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Close" />
+        <!-- Default Achievement Badges -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_chip_verified"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp"
+            android:text="🛡 Verified Reporter"
+            android:textColor="@color/rg_on_primary_container"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_chip_unverified"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp"
+            android:text="⭐ Contributor"
+            android:textColor="@color/rg_on_tertiary_container"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_chip_expired"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp"
+            android:text="🔒 Road Guardian"
+            android:textColor="@color/rg_on_surface_variant"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
 
 </LinearLayout>

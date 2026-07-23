@@ -59,24 +59,24 @@ public class RegisterFragment extends Fragment {
         });
 
         authViewModel.getAuthState().observe(getViewLifecycleOwner(), state -> {
-            if (state instanceof AuthenticationState.Loading) {
-                progressBar.setVisibility(View.VISIBLE);
-                btnRegister.setEnabled(false);
-            } else if (state instanceof AuthenticationState.Success) {
-                progressBar.setVisibility(View.GONE);
-                btnRegister.setEnabled(true);
+            boolean isLoading = state instanceof AuthenticationState.Loading;
+            if (progressBar != null) {
+                progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+            }
+
+            btnRegister.setEnabled(!isLoading);
+            etEmail.setEnabled(!isLoading);
+            etPassword.setEnabled(!isLoading);
+            if (tvGoToLogin != null) tvGoToLogin.setEnabled(!isLoading);
+
+            if (state instanceof AuthenticationState.Success) {
                 Toast.makeText(getContext(), "Registration Successful", Toast.LENGTH_SHORT).show();
                 if (getActivity() != null) {
-                    getActivity().finish(); // Return to previous activity
+                    getActivity().finish();
                 }
             } else if (state instanceof AuthenticationState.Error) {
-                progressBar.setVisibility(View.GONE);
-                btnRegister.setEnabled(true);
                 AuthenticationState.Error errorState = (AuthenticationState.Error) state;
                 Toast.makeText(getContext(), errorState.getMessage(), Toast.LENGTH_SHORT).show();
-            } else if (state instanceof AuthenticationState.Idle) {
-                progressBar.setVisibility(View.GONE);
-                btnRegister.setEnabled(true);
             }
         });
     }

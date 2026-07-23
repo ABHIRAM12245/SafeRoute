@@ -10,6 +10,7 @@ import com.vlabs.routeguard.models.RoadReport;
 import com.vlabs.routeguard.utils.FirestoreCollections;
 import com.vlabs.routeguard.utils.FirestoreFields;
 import com.vlabs.routeguard.managers.ReportLifecycleManager;
+import com.vlabs.routeguard.managers.CascadeCleanupManager;
 import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
@@ -20,11 +21,13 @@ public class FirestoreRepository {
     private static final String TAG = "RouteGuard";
     private final FirebaseFirestore db;
     private final ReportLifecycleManager lifecycleManager;
+    private final CascadeCleanupManager cleanupManager;
     private ListenerRegistration reportsListener;
 
     public FirestoreRepository() {
         db = FirebaseFirestore.getInstance();
         lifecycleManager = new ReportLifecycleManager();
+        cleanupManager = new CascadeCleanupManager();
         
         // Configure offline persistence
         FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
@@ -39,6 +42,8 @@ public class FirestoreRepository {
     public void fetchReports(ReportRepository.ReportCallback callback) {
         Log.d(TAG, "Fetching reports from Firestore...");
         db.collection(FirestoreCollections.REPORTS)
+                .orderBy(FirestoreFields.TIMESTAMP, com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(50)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<RoadReport> reports = new ArrayList<>();
@@ -57,6 +62,34 @@ public class FirestoreRepository {
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error fetching reports", e);
                     callback.onError("Failed to load reports. Please check your connection.");
+                });
+    }
+
+    public void fetchUserReports(String userId, ReportRepository.ReportCallback callback) {
+        Log.d(TAG, "Fetching reports for user " + userId + "...");
+        db.collection(FirestoreCollections.REPORTS)
+                .whereEqualTo(FirestoreFields.REPORTER_ID, userId)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<RoadReport> reports = new ArrayList<>();
+                    if (queryDocumentSnapshots != null && !queryDocumentSnapshots.isEmpty()) {
+                        Log.d("MY_REPORTS_TRACE", "Firestore returned " + queryDocumentSnapshots.size() + " documents for user " + userId);
+                        for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                            RoadReport report = mapDocumentToReport(document);
+                            if (report != null) {
+                                reports.add(report);
+                            }
+                        }
+                        // Sort in-memory by timestamp descending
+                        java.util.Collections.sort(reports, (r1, r2) -> Long.compare(r2.getTimestamp(), r1.getTimestamp()));
+                    } else {
+                        Log.d("MY_REPORTS_TRACE", "User reports collection returned 0 documents for user " + userId);
+                    }
+                    callback.onSuccess(reports);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error fetching user reports", e);
+                    callback.onError("Failed to load your reports. Please check your connection.");
                 });
     }
 
@@ -84,6 +117,8 @@ public class FirestoreRepository {
         
         Log.d(TAG, "Starting reports listener...");
         reportsListener = db.collection(FirestoreCollections.REPORTS)
+                .orderBy(FirestoreFields.TIMESTAMP, com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(50)
                 .addSnapshotListener((value, error) -> {
                     if (error != null) {
                         Log.e(TAG, "Error listening for reports", error);
@@ -120,8 +155,7 @@ public class FirestoreRepository {
 
             // Validate required fields
             if (!document.contains(FirestoreFields.TYPE) || !document.contains(FirestoreFields.LAT) ||
-                !document.contains(FirestoreFields.LON) || !document.contains(FirestoreFields.DESCRIPTION) ||
-                !document.contains(FirestoreFields.TIMESTAMP)) {
+                !document.contains(FirestoreFields.LON)) {
                 Log.w(TAG, "Skipping document " + document.getId() + " due to missing fields.");
                 return null;
             }
@@ -129,22 +163,39 @@ public class FirestoreRepository {
             String typeString = document.getString(FirestoreFields.TYPE);
             Double lat = document.getDouble(FirestoreFields.LAT);
             Double lon = document.getDouble(FirestoreFields.LON);
-            String description = document.getString(FirestoreFields.DESCRIPTION);
+            String description = getSafeString(document, FirestoreFields.DESCRIPTION, "");
             Long timestamp = null;
-            java.util.Date date = document.getDate(FirestoreFields.TIMESTAMP, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE);
-            if (date != null) {
-                timestamp = date.getTime();
+            Object tsObj = document.get(FirestoreFields.TIMESTAMP);
+            if (tsObj instanceof com.google.firebase.Timestamp) {
+                timestamp = ((com.google.firebase.Timestamp) tsObj).toDate().getTime();
+            } else if (tsObj instanceof Long) {
+                timestamp = (Long) tsObj;
+            } else if (tsObj instanceof Double) {
+                timestamp = ((Double) tsObj).longValue();
+            } else if (tsObj instanceof Number) {
+                timestamp = ((Number) tsObj).longValue();
             } else {
-                timestamp = System.currentTimeMillis();
+                java.util.Date date = document.getDate(FirestoreFields.TIMESTAMP, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE);
+                if (date != null) {
+                    timestamp = date.getTime();
+                } else {
+                    timestamp = 0L;
+                }
             }
 
             // Additional null checks to ensure type safety
-            if (typeString == null || lat == null || lon == null || description == null) {
+            if (typeString == null || lat == null || lon == null) {
                 Log.w(TAG, "Skipping document " + document.getId() + " due to null field values.");
                 return null;
             }
 
             String reporterId = getSafeString(document, FirestoreFields.REPORTER_ID, "");
+            if (reporterId.isEmpty()) {
+                reporterId = getSafeString(document, "userId", "");
+            }
+            if (reporterId.isEmpty()) {
+                reporterId = getSafeString(document, "reporter_id", "");
+            }
 
             ReportType type;
             try {
@@ -162,19 +213,32 @@ public class FirestoreRepository {
                 parsedExpiresAt = (Long) expiresAtObj;
             } else if (expiresAtObj instanceof Double) {
                 parsedExpiresAt = ((Double) expiresAtObj).longValue();
+            } else if (expiresAtObj instanceof Number) {
+                parsedExpiresAt = ((Number) expiresAtObj).longValue();
             }
 
-            if (parsedExpiresAt != 0L) {
-                if (lifecycleManager.isExpired(parsedExpiresAt)) {
-                    Log.d(TAG, "Skipping expired document " + document.getId());
-                    return null;
-                }
-            } else {
+            if (parsedExpiresAt <= 0L && timestamp != null && timestamp > 0L) {
                 parsedExpiresAt = lifecycleManager.calculateExpiration(type, timestamp);
-                if (lifecycleManager.isExpired(parsedExpiresAt)) {
-                    Log.d(TAG, "Skipping expired legacy document " + document.getId());
-                    return null;
-                }
+            }
+
+            long now = System.currentTimeMillis();
+            boolean isExpired = (parsedExpiresAt > 0L && now >= parsedExpiresAt);
+
+            Log.d("LIFECYCLE_EXPIRY_TRACE", "========================================");
+            Log.d("LIFECYCLE_EXPIRY_TRACE", "Report ID: " + document.getId());
+            Log.d("LIFECYCLE_EXPIRY_TRACE", "Report Type: " + type);
+            Log.d("LIFECYCLE_EXPIRY_TRACE", "createdAt (timestamp): " + timestamp);
+            Log.d("LIFECYCLE_EXPIRY_TRACE", "expiresAt: " + parsedExpiresAt);
+            Log.d("LIFECYCLE_EXPIRY_TRACE", "currentTime: " + now);
+            Log.d("LIFECYCLE_EXPIRY_TRACE", "isExpired: " + isExpired);
+            Log.d("LIFECYCLE_EXPIRY_TRACE", "========================================");
+
+            if (isExpired) {
+                Log.d(TAG, "Document " + document.getId() + " is EXPIRED! Triggering immediate cascade deletion.");
+                RoadReport stub = new RoadReport();
+                stub.setReportId(document.getId());
+                cleanupManager.cleanupExpiredReport(stub);
+                return null;
             }
 
             RoadReport finalReport = new RoadReport(
@@ -187,11 +251,30 @@ public class FirestoreRepository {
                     reporterId,
                     parsedExpiresAt
             );
+            String imageUrl = null;
+            Object imgObj = document.get(FirestoreFields.IMAGE_URL);
+            if (imgObj instanceof String) {
+                imageUrl = (String) imgObj;
+            }
+            finalReport.setImageUrl(imageUrl);
+
+            String publicId = getSafeString(document, FirestoreFields.CLOUDINARY_PUBLIC_ID, null);
+            if (publicId != null) {
+                finalReport.setCloudinaryPublicId(publicId);
+            }
 
             finalReport.setUpvotes(getSafeInt(document, "upvotes", 0));
             finalReport.setDownvotes(getSafeInt(document, "downvotes", 0));
             finalReport.setActiveConfirmations(getSafeInt(document, "activeConfirmations", 0));
             finalReport.setGoneConfirmations(getSafeInt(document, "goneConfirmations", 0));
+            finalReport.setCommentCount(getSafeInt(document, FirestoreFields.COMMENT_COUNT, 0));
+
+            String vStatusStr = getSafeString(document, "verificationStatus", null);
+            if (vStatusStr != null) {
+                try {
+                    finalReport.setVerificationStatus(com.vlabs.routeguard.models.VerificationStatus.valueOf(vStatusStr));
+                } catch (Exception ignored) {}
+            }
 
             // Calculate confidence on the fly
             finalReport.setConfidenceScore(com.vlabs.routeguard.managers.ConfidenceEngine.calculateConfidence(finalReport));

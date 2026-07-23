@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RouteGuard</string>
+    <string name="tag_line">જતાં પહેલાં જાણો</string>
+    <string name="notifications_desc">સૂચનાઓ</string>
+    <string name="guest_profile_desc">મહેમાન પ્રોફાઇલ</string>
+    <string name="search_desc">શોધો</string>
+    <string name="search_hint">સ્થળ શોધો&#8230;</string>
+    <string name="report_desc">રિપોર્ટ</string>
+    <string name="current_location_desc">વર્તમાન સ્થળ</string>
+    <string name="filter_categories">કેટેગરીઓ ફિલ્ટર કરો</string>
+    <string name="police_checking">પોલીસ ચેકિંગ</string>
+    <string name="accident">અકસ્માત</string>
+    <string name="heavy_traffic">ભારે ટ્રાફિક</string>
+    <string name="road_construction">રસ્તાનું કામકાજ</string>
+    <string name="animal_on_road">રસ્તા પર પશુ</string>
+    <string name="water_logging">પાણી ભરાવું</string>
+    <string name="other">અન્ય</string>
+    <string name="reset">રીસેટ</string>
+    <string name="apply">લાગુ કરો</string>
+    <string name="location_services_off">લોકેશન સેવાઓ બંધ છે</string>
+    <string name="turn_on_gps">તમારા વર્તમાન સ્થાનનો ઉપયોગ કરવા માટે GPS ચાલુ કરો.</string>
+    <string name="cancel">રદ કરો</string>
+    <string name="turn_on">ચાલુ કરો</string>
+    <string name="report_type">રિપોર્ટનો પ્રકાર</string>
+    <string name="just_now">હમણાં જ</string>
+    <string name="report_description_placeholder">રિપોર્ટનું વિગતો અહીં લખો.</string>
+    <string name="close">બંધ કરો</string>
+
+    <!-- Navigation Drawer -->
+    <string name="nav_home">હોમ</string>
+    <string name="nav_my_reports">મારા રિપોર્ટ્સ</string>
+    <string name="nav_settings">સેટિંગ્સ</string>
+    <string name="nav_about">અમારા વિશે</string>
+    <string name="nav_logout">લોગઆઉટ</string>
+
+    <!-- Titles & Headers -->
+    <string name="my_reports_title">મારા રિપોર્ટ્સ</string>
+    <string name="no_reports_yet">હજુ સુધી કોઈ રિપોર્ટ સબમિટ કરાયો નથી.</string>
+    <string name="login_required">લોગિન જરૂરી છે</string>
+    <string name="login_required_desc">આ સુવિધાનો ઉપયોગ કરવા માટે તમારે સાઇન ઇન કરવું પડશે.</string>
+    <string name="login">લોગિન</string>
+    <string name="register">રજિસ્ટર</string>
+    <string name="create_account">ખાતું બનાવો</string>
+    <string name="email_hint">ઈમેલ</string>
+    <string name="password_hint">પાસવર્ડ</string>
+    <string name="display_name">નામ</string>
+    <string name="save">સાચવો</string>
+    <string name="reporter_label">રિપોર્ટર:</string>
+    <string name="distance_label">અંતર:</string>
+    <string name="reported_label">રિપોર્ટ કરાયેલ:</string>
+    <string name="status_label">સ્થિતિ:</string>
+    <string name="still_exists">હજુ પણ છે</string>
+    <string name="not_found">મળ્યું નથી</string>
+    <string name="trust_score">ટ્રસ્ટ સ્કોર</string>
+    <string name="upvotes">અપવોટ્સ</string>
+    <string name="downvotes">ડાઉનવોટ્સ</string>
+    <string name="comments_header">કોમેન્ટ્સ</string>
+    <string name="add_comment_hint">કોમેન્ટ ઉમેરો...</string>
+</resources>

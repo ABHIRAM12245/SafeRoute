@@ -1,8 +1,35 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme with Material 3 styling -->
     <style name="Base.Theme.RouteGuard" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <!-- Primary Palette -->
+        <item name="colorPrimary">@color/rg_primary</item>
+        <item name="colorOnPrimary">@color/rg_on_primary</item>
+        <item name="colorPrimaryContainer">@color/rg_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/rg_on_primary_container</item>
+
+        <!-- Secondary Palette -->
+        <item name="colorSecondary">@color/rg_secondary</item>
+        <item name="colorOnSecondary">@color/rg_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/rg_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/rg_on_secondary_container</item>
+
+        <!-- Tertiary Palette -->
+        <item name="colorTertiary">@color/rg_tertiary</item>
+        <item name="colorOnTertiary">@color/rg_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/rg_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/rg_on_tertiary_container</item>
+
+        <!-- Neutral Surface Attributes for Dark Mode Compatibility -->
+        <item name="colorSurface">@color/rg_surface</item>
+        <item name="colorOnSurface">@color/rg_on_surface</item>
+        <item name="colorSurfaceVariant">@color/rg_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/rg_on_surface_variant</item>
+        <item name="colorOutline">@color/rg_outline</item>
+
+        <!-- Global Shape Corner Scale -->
+        <item name="shapeAppearanceCornerSmall">@style/ShapeAppearance.Material3.Corner.Small</item>
+        <item name="shapeAppearanceCornerMedium">@style/ShapeAppearance.Material3.Corner.Medium</item>
+        <item name="shapeAppearanceCornerLarge">@style/ShapeAppearance.Material3.Corner.Large</item>
     </style>
 
     <style name="Theme.RouteGuard" parent="Base.Theme.RouteGuard" />

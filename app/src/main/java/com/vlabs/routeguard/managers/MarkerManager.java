@@ -21,7 +21,7 @@ import java.util.Set;
 public class MarkerManager {
 
     public interface OnReportClickListener {
-        void onReportClick(String reportId);
+        void onReportClick(java.util.List<String> reportIds);
     }
 
     private final MapView mapView;
@@ -82,19 +82,17 @@ public class MarkerManager {
     }
 
     private boolean isExpired(RoadReport report) {
-        // Add 60s grace period
-        long EXPIRY_GRACE_MS = 60_000L;
-        boolean expired = (report.getExpiresAt() + EXPIRY_GRACE_MS) < System.currentTimeMillis();
-        
-        android.util.Log.e("MARKER_TEST", "--- EXPIRATION TRACE ---");
-        android.util.Log.e("MARKER_TEST", "Report ID: " + report.getReportId());
-        android.util.Log.e("MARKER_TEST", "Report Type: " + report.getType());
-        android.util.Log.e("MARKER_TEST", "Created Timestamp: " + report.getTimestamp());
-        android.util.Log.e("MARKER_TEST", "Expiration Duration: " + (report.getExpiresAt() - report.getTimestamp()));
-        android.util.Log.e("MARKER_TEST", "Calculated Expiration Time: " + report.getExpiresAt());
-        android.util.Log.e("MARKER_TEST", "Current Time: " + System.currentTimeMillis());
-        android.util.Log.e("MARKER_TEST", "isExpired() result: " + expired);
-        
+        if (report == null) return true;
+        long expiresAt = report.getExpiresAt();
+        long now = System.currentTimeMillis();
+        boolean expired = (expiresAt > 0L && now >= expiresAt);
+
+        android.util.Log.d("LIFECYCLE_EXPIRY_TRACE", "[MarkerManager] Report ID: " + report.getReportId()
+                + " | createdAt: " + report.getTimestamp()
+                + " | expiresAt: " + expiresAt
+                + " | currentTime: " + now
+                + " | isExpired: " + expired);
+
         return expired;
     }
 
@@ -146,6 +144,46 @@ public class MarkerManager {
         return visible;
     }
 
+    private static class ReportCluster {
+        String clusterId;
+        GeoPoint center;
+        List<RoadReport> reports = new ArrayList<>();
+    }
+    
+    private android.graphics.drawable.Drawable createBadgeIcon(android.content.Context context, android.graphics.drawable.Drawable baseIcon, int count) {
+        if (count <= 1 || baseIcon == null) return baseIcon;
+        
+        android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(
+                Math.max(baseIcon.getIntrinsicWidth(), 100), 
+                Math.max(baseIcon.getIntrinsicHeight(), 100), 
+                android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+        baseIcon.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        baseIcon.draw(canvas);
+        
+        android.graphics.Paint paint = new android.graphics.Paint();
+        paint.setColor(android.graphics.Color.RED);
+        paint.setStyle(android.graphics.Paint.Style.FILL);
+        paint.setAntiAlias(true);
+        
+        float radius = 25f;
+        float cx = canvas.getWidth() - radius;
+        float cy = radius;
+        canvas.drawCircle(cx, cy, radius, paint);
+        
+        paint.setColor(android.graphics.Color.WHITE);
+        paint.setTextSize(30f);
+        paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+        paint.setFakeBoldText(true);
+        
+        android.graphics.Paint.FontMetrics fm = paint.getFontMetrics();
+        float textY = cy - ((fm.descent + fm.ascent) / 2);
+        
+        canvas.drawText(String.valueOf(count), cx, textY, paint);
+        
+        return new android.graphics.drawable.BitmapDrawable(context.getResources(), bitmap);
+    }
+
     private static class DebugMarker extends Marker {
         public DebugMarker(MapView mapView) {
             super(mapView);
@@ -174,92 +212,76 @@ public class MarkerManager {
     }
 
     private void applyUpdates() {
-        android.util.Log.e("MARKER_TEST", "Reached applyUpdates()");
         List<RoadReport> visibleReports = getVisibleReports();
-        android.util.Log.e("MARKER_TEST", "visibleReports.size(): " + visibleReports.size());
-        Set<String> incomingIds = new HashSet<>();
         
+        List<ReportCluster> clusters = new ArrayList<>();
         for (RoadReport report : visibleReports) {
-            String reportId = report.getReportId();
-            incomingIds.add(reportId);
-            
-            android.util.Log.d("MarkerRendering", "----------------------------------");
-            android.util.Log.d("MarkerRendering", "REPORT LOADED: " + reportId);
-            android.util.Log.d("MarkerRendering", "Latitude: " + report.getLatitude());
-            android.util.Log.d("MarkerRendering", "Longitude: " + report.getLongitude());
-            android.util.Log.d("MarkerRendering", "Confidence: " + report.getConfidenceScore());
-
-            if (activeMarkers.containsKey(reportId)) {
-                Marker marker = activeMarkers.get(reportId);
-                marker.setPosition(new GeoPoint(report.getLatitude(), report.getLongitude()));
-                
-                android.graphics.drawable.Drawable icon = androidx.core.content.ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation);
-                marker.setIcon(icon);
-                
-                android.util.Log.d("MarkerRendering", "Marker icon intrinsic width: " + (icon != null ? icon.getIntrinsicWidth() : "null"));
-                android.util.Log.d("MarkerRendering", "Marker icon intrinsic height: " + (icon != null ? icon.getIntrinsicHeight() : "null"));
-                try {
-                    android.util.Log.d("MarkerRendering", "Marker alpha: " + marker.getAlpha());
-                } catch (Exception e) {
-                    android.util.Log.d("MarkerRendering", "Marker alpha: not supported in this osmdroid version");
+            boolean added = false;
+            for (ReportCluster cluster : clusters) {
+                float[] results = new float[1];
+                android.location.Location.distanceBetween(
+                    cluster.center.getLatitude(), cluster.center.getLongitude(),
+                    report.getLatitude(), report.getLongitude(), results);
+                if (results[0] <= 100) {
+                    cluster.reports.add(report);
+                    added = true;
+                    break;
                 }
-                android.util.Log.d("MarkerRendering", "Marker position: " + marker.getPosition().getLatitude() + "," + marker.getPosition().getLongitude());
-                android.util.Log.d("MarkerRendering", "Marker anchor: 0.5, 0.5");
-                android.util.Log.d("MarkerRendering", "Overlay count: " + mapView.getOverlays().size());
-                
-                marker.setInfoWindow(null);
-                marker.setOnMarkerClickListener((m, map) -> {
-                    if (listener != null) listener.onReportClick(reportId);
-                    return true;
-                });
-            } else {
-                android.util.Log.e("MARKER_TEST", "Report ID: " + reportId);
-                android.util.Log.e("MARKER_TEST", "Latitude: " + report.getLatitude());
-                android.util.Log.e("MARKER_TEST", "Longitude: " + report.getLongitude());
-                DebugMarker marker = new DebugMarker(mapView);
-                android.util.Log.e("MARKER_TEST", "Marker Created");
-                marker.setPosition(new GeoPoint(report.getLatitude(), report.getLongitude()));
-                
-                android.graphics.drawable.Drawable icon = androidx.core.content.ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation);
-                marker.setIcon(icon);
-                
-                marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
-                marker.setId(reportId);
-                marker.setInfoWindow(null);
-                marker.setOnMarkerClickListener((m, map) -> {
-                    if (listener != null) listener.onReportClick(reportId);
-                    return true; 
-                });
-                
-                android.util.Log.d("MarkerRendering", "Marker icon intrinsic width: " + (icon != null ? icon.getIntrinsicWidth() : "null"));
-                android.util.Log.d("MarkerRendering", "Marker icon intrinsic height: " + (icon != null ? icon.getIntrinsicHeight() : "null"));
-                try {
-                    android.util.Log.d("MarkerRendering", "Marker alpha: " + marker.getAlpha());
-                } catch (Exception e) {
-                    android.util.Log.d("MarkerRendering", "Marker alpha: not supported");
-                }
-                android.util.Log.d("MarkerRendering", "Marker position: " + marker.getPosition().getLatitude() + "," + marker.getPosition().getLongitude());
-                android.util.Log.d("MarkerRendering", "Marker anchor: 0.5, 0.5");
-                android.util.Log.d("MarkerRendering", "Overlay count BEFORE add: " + mapView.getOverlays().size());
-                
-                activeMarkers.put(reportId, marker);
-                mapView.getOverlays().add(marker);
-                android.util.Log.e("MARKER_TEST", "Marker added for Report ID = " + reportId);
-                android.util.Log.e("MARKER_TEST", "Current activeMarkers.size(): " + activeMarkers.size());
-                android.util.Log.e("MARKER_TEST", "Current mapView.getOverlays().size(): " + mapView.getOverlays().size());
-                
-                android.util.Log.d("MarkerRendering", "Immediately after mapView.getOverlays().add(marker):");
-                android.util.Log.d("MarkerRendering", "Marker hashCode: " + marker.hashCode());
-                int index = mapView.getOverlays().indexOf(marker);
-                android.util.Log.d("MarkerRendering", "Overlay index: " + index);
-                if (index >= 0) {
-                    android.util.Log.d("MarkerRendering", "Overlay class: " + mapView.getOverlays().get(index).getClass().getName());
-                }
+            }
+            if (!added) {
+                ReportCluster newCluster = new ReportCluster();
+                newCluster.clusterId = report.getReportId();
+                newCluster.center = new GeoPoint(report.getLatitude(), report.getLongitude());
+                newCluster.reports.add(report);
+                clusters.add(newCluster);
             }
         }
         
-        android.util.Log.e("MARKER_TEST", "Final activeMarkers.size(): " + activeMarkers.size());
-        android.util.Log.e("MARKER_TEST", "Final overlay count: " + mapView.getOverlays().size());
+        Set<String> incomingIds = new HashSet<>();
+        
+        for (ReportCluster cluster : clusters) {
+            String clusterId = cluster.clusterId;
+            incomingIds.add(clusterId);
+            
+            RoadReport primaryReport = cluster.reports.get(0);
+            int count = cluster.reports.size();
+            ArrayList<String> clusterReportIds = new ArrayList<>();
+            for (RoadReport r : cluster.reports) clusterReportIds.add(r.getReportId());
+            
+            if (activeMarkers.containsKey(clusterId)) {
+                Marker marker = activeMarkers.get(clusterId);
+                marker.setPosition(cluster.center);
+                
+                ConfidenceLevel level = ConfidenceEngine.getConfidenceLevel(primaryReport.getConfidenceScore());
+                android.graphics.drawable.Drawable icon = MarkerFactory.getMarkerIcon(context, primaryReport.getType(), level);
+                marker.setIcon(createBadgeIcon(context, icon, count));
+                
+                marker.setInfoWindow(null);
+                marker.setOnMarkerClickListener((m, map) -> {
+                    if (listener != null) listener.onReportClick(clusterReportIds);
+                    return true;
+                });
+            } else {
+                DebugMarker marker = new DebugMarker(mapView);
+                marker.setPosition(cluster.center);
+                
+                ConfidenceLevel level = ConfidenceEngine.getConfidenceLevel(primaryReport.getConfidenceScore());
+                android.graphics.drawable.Drawable icon = MarkerFactory.getMarkerIcon(context, primaryReport.getType(), level);
+                marker.setIcon(createBadgeIcon(context, icon, count));
+                
+                marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
+                marker.setId(clusterId);
+                marker.setInfoWindow(null);
+                marker.setOnMarkerClickListener((m, map) -> {
+                    if (listener != null) listener.onReportClick(clusterReportIds);
+                    return true; 
+                });
+                
+                activeMarkers.put(clusterId, marker);
+                mapView.getOverlays().add(marker);
+            }
+        }
+
 
         Iterator<Map.Entry<String, Marker>> iterator = activeMarkers.entrySet().iterator();
         while (iterator.hasNext()) {

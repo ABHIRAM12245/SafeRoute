@@ -35,10 +35,10 @@ public class CommentRepository extends BaseRepository {
         return db.collection(FirestoreCollections.REPORTS)
                 .document(reportId)
                 .collection(FirestoreCollections.COMMENTS)
-                .whereEqualTo(FirestoreFields.IS_DELETED, false)
                 .orderBy(FirestoreFields.TIMESTAMP, Query.Direction.ASCENDING)
                 .addSnapshotListener((value, error) -> {
                     if (error != null) {
+                        android.util.Log.e("CommentPipeline", "Firestore query error: " + error.getMessage());
                         callback.onFailure(error);
                         return;
                     }

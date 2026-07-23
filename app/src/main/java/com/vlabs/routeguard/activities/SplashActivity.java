@@ -32,6 +32,7 @@ public class SplashActivity extends BaseActivity {
 
     private void navigateToHomeAfterDelay() {
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (isFinishing() || isDestroyed()) return;
             Intent intent = new Intent(SplashActivity.this, HomeActivity.class);
             startActivity(intent);
             finish();

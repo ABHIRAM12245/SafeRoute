@@ -2,6 +2,7 @@ package com.vlabs.routeguard.managers;
 
 import android.content.Context;
 import android.net.Uri;
+import androidx.core.content.FileProvider;
 import java.io.File;
 import java.io.IOException;
 
@@ -22,7 +23,11 @@ public class CameraCaptureManager {
     public void createTempPhoto() throws IOException {
         File cacheDir = context.getCacheDir();
         tempPhotoFile = File.createTempFile("TEMP_PHOTO_", ".jpg", cacheDir);
-        tempPhotoUri = Uri.fromFile(tempPhotoFile);
+        tempPhotoUri = FileProvider.getUriForFile(
+                context,
+                context.getPackageName() + ".fileprovider",
+                tempPhotoFile
+        );
     }
 
     public Uri getTempPhotoUri() {

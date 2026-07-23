@@ -15,6 +15,8 @@ public class User {
     private int reputationScore;
     private boolean isModerator;
     private boolean isBlocked;
+    private String fcmToken;
+    private String userLevel;
 
     public User() {
         // Default constructor required for Firestore
@@ -111,5 +113,21 @@ public class User {
 
     public void setBlocked(boolean blocked) {
         isBlocked = blocked;
+    }
+
+    public String getFcmToken() {
+        return fcmToken;
+    }
+
+    public void setFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
+    }
+
+    public String getUserLevel() {
+        return userLevel;
+    }
+
+    public void setUserLevel(String userLevel) {
+        this.userLevel = userLevel;
     }
 }

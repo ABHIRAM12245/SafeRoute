@@ -15,6 +15,7 @@ public class FirestoreFields {
     public static final String IMAGE_URL = "imageUrl";
     public static final String COMMENT_COUNT = "commentCount";
     public static final String LAST_COMMENT_AT = "lastCommentAt";
+    public static final String CLOUDINARY_PUBLIC_ID = "cloudinaryPublicId";
 
     // Comment fields
     public static final String COMMENT_ID = "commentId";

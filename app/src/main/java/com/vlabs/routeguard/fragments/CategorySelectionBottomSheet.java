@@ -4,14 +4,13 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.vlabs.routeguard.R;
 import com.vlabs.routeguard.models.ReportType;
 
@@ -41,49 +40,25 @@ public class CategorySelectionBottomSheet extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        RecyclerView rvCategories = view.findViewById(R.id.rvCategories);
-        rvCategories.setLayoutManager(new LinearLayoutManager(getContext()));
-        rvCategories.setAdapter(new CategoryAdapter(ReportType.values()));
-    }
-
-    private class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.CategoryViewHolder> {
-
-        private final ReportType[] categories;
-
-        public CategoryAdapter(ReportType[] categories) {
-            this.categories = categories;
-        }
-
-        @NonNull
-        @Override
-        public CategoryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_category, parent, false);
-            return new CategoryViewHolder(view);
-        }
-
-        @Override
-        public void onBindViewHolder(@NonNull CategoryViewHolder holder, int position) {
-            ReportType category = categories[position];
-            holder.tvCategoryName.setText(category.getDisplayName());
-            holder.itemView.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onCategorySelected(category);
+        ChipGroup cgCategories = view.findViewById(R.id.cgCategories);
+        if (cgCategories != null) {
+            for (int i = 0; i < cgCategories.getChildCount(); i++) {
+                View child = cgCategories.getChildAt(i);
+                if (child instanceof Chip) {
+                    Chip chip = (Chip) child;
+                    chip.setOnClickListener(v -> {
+                        Object tag = chip.getTag();
+                        if (tag != null) {
+                            try {
+                                ReportType category = ReportType.valueOf(tag.toString());
+                                if (listener != null) {
+                                    listener.onCategorySelected(category);
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                        dismiss();
+                    });
                 }
-                dismiss();
-            });
-        }
-
-        @Override
-        public int getItemCount() {
-            return categories.length;
-        }
-
-        class CategoryViewHolder extends RecyclerView.ViewHolder {
-            TextView tvCategoryName;
-
-            public CategoryViewHolder(@NonNull View itemView) {
-                super(itemView);
-                tvCategoryName = itemView.findViewById(R.id.tvCategoryName);
             }
         }
     }

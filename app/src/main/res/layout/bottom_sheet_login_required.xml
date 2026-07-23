@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Login Required"
+        android:text="@string/login_required"
         android:textSize="20sp"
         android:textStyle="bold"
         android:textAlignment="center"
@@ -18,7 +18,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="You need to sign in to access this feature."
+        android:text="@string/login_required_desc"
         android:textSize="14sp"
         android:textAlignment="center"
         android:layout_marginBottom="24dp" />
@@ -27,7 +27,7 @@
         android:id="@+id/btnLogin"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Login"
+        android:text="@string/login"
         android:layout_marginBottom="8dp"/>
 
     <com.google.android.material.button.MaterialButton
@@ -35,7 +35,7 @@
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Create Account"
+        android:text="@string/create_account"
         android:layout_marginBottom="16dp"/>
         
     <com.google.android.material.button.MaterialButton
@@ -43,6 +43,6 @@
         style="@style/Widget.MaterialComponents.Button.TextButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Not Now" />
+        android:text="@string/cancel" />
 
 </LinearLayout>

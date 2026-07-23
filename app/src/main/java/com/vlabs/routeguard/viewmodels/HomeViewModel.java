@@ -24,14 +24,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+public class HomeViewModel extends BaseViewModel {
+
     public enum CommentSubmitState {
         IDLE,
         LOADING,
         SUCCESS,
         ERROR
     }
-
-public class HomeViewModel extends BaseViewModel {
 
     private final SearchRepository searchRepository;
     private final ReportRepository reportRepository;

@@ -21,8 +21,16 @@ public class AuthenticationViewModel extends ViewModel {
     }
 
     public void login(String email, String password) {
+        if (AuthenticationValidator.isEmpty(email)) {
+            authState.setValue(new AuthenticationState.Error("Please enter your email"));
+            return;
+        }
         if (!AuthenticationValidator.isValidEmail(email)) {
-            authState.setValue(new AuthenticationState.Error("Invalid email address"));
+            authState.setValue(new AuthenticationState.Error("Please enter a valid email address"));
+            return;
+        }
+        if (AuthenticationValidator.isEmpty(password)) {
+            authState.setValue(new AuthenticationState.Error("Please enter your password"));
             return;
         }
         if (!AuthenticationValidator.isValidPassword(password)) {
@@ -32,7 +40,7 @@ public class AuthenticationViewModel extends ViewModel {
 
         authState.setValue(new AuthenticationState.Loading());
         
-        authRepository.login(email, password, new AuthenticationRepository.AuthCallback() {
+        authRepository.login(email.trim(), password, new AuthenticationRepository.AuthCallback() {
             @Override
             public void onSuccess() {
                 authState.postValue(new AuthenticationState.Success());
@@ -46,8 +54,16 @@ public class AuthenticationViewModel extends ViewModel {
     }
 
     public void register(String email, String password) {
+        if (AuthenticationValidator.isEmpty(email)) {
+            authState.setValue(new AuthenticationState.Error("Please enter your email"));
+            return;
+        }
         if (!AuthenticationValidator.isValidEmail(email)) {
-            authState.setValue(new AuthenticationState.Error("Invalid email address"));
+            authState.setValue(new AuthenticationState.Error("Please enter a valid email address"));
+            return;
+        }
+        if (AuthenticationValidator.isEmpty(password)) {
+            authState.setValue(new AuthenticationState.Error("Please enter a password"));
             return;
         }
         if (!AuthenticationValidator.isValidPassword(password)) {
@@ -57,10 +73,34 @@ public class AuthenticationViewModel extends ViewModel {
 
         authState.setValue(new AuthenticationState.Loading());
         
-        authRepository.register(email, password, new AuthenticationRepository.AuthCallback() {
+        authRepository.register(email.trim(), password, new AuthenticationRepository.AuthCallback() {
             @Override
             public void onSuccess() {
                 authState.postValue(new AuthenticationState.Success());
+            }
+
+            @Override
+            public void onError(String error) {
+                authState.postValue(new AuthenticationState.Error(error));
+            }
+        });
+    }
+
+    public void sendPasswordResetEmail(String email) {
+        if (AuthenticationValidator.isEmpty(email)) {
+            authState.setValue(new AuthenticationState.Error("Please enter your email"));
+            return;
+        }
+        if (!AuthenticationValidator.isValidEmail(email)) {
+            authState.setValue(new AuthenticationState.Error("Please enter a valid email address"));
+            return;
+        }
+
+        authState.setValue(new AuthenticationState.Loading());
+        authRepository.sendPasswordResetEmail(email.trim(), new AuthenticationRepository.AuthCallback() {
+            @Override
+            public void onSuccess() {
+                authState.postValue(new AuthenticationState.Error("Password reset email sent! Check your inbox."));
             }
 
             @Override

@@ -57,6 +57,17 @@ public class UploadManager {
         if (compressionManager != null) {
             compressedAttachment = compressionManager.compress(attachment);
         }
-        storageRepository.upload(compressedAttachment, callback);
+        storageRepository.upload(compressedAttachment, new StorageRepository.UploadCallback() {
+            @Override
+            public void onSuccess(String downloadUrl, String publicId) {
+                android.util.Log.d("UploadManager", "URL received: " + downloadUrl + ", publicId: " + publicId);
+                callback.onSuccess(downloadUrl, publicId);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                callback.onFailure(e);
+            }
+        });
     }
 }

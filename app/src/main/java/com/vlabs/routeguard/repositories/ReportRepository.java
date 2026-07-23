@@ -29,6 +29,10 @@ public class ReportRepository extends BaseRepository {
         firestoreRepository.fetchReports(callback);
     }
 
+    public void fetchUserReports(String userId, ReportCallback callback) {
+        firestoreRepository.fetchUserReports(userId, callback);
+    }
+
     public void fetchReportById(String reportId, SingleReportCallback callback) {
         firestoreRepository.fetchReportById(reportId, callback);
     }

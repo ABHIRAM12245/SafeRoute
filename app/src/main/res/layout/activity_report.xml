@@ -3,18 +3,22 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/white">
+    android:background="?attr/colorSurface">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/topAppBar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorSurface"
             app:title="New Report"
-            app:navigationIcon="?attr/homeAsUpIndicator" />
+            app:titleTextColor="?attr/colorOnSurface"
+            app:navigationIcon="?attr/homeAsUpIndicator"
+            app:navigationIconTint="?attr/colorOnSurface" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
@@ -28,27 +32,38 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <!-- Location Field -->
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="20dp"
                 android:hint="Current Location"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                app:hintTextColor="?attr/colorPrimary"
+                app:startIconDrawable="@android:drawable/ic_menu_mylocation"
+                app:startIconTint="?attr/colorPrimary"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etLocation"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:enabled="false"
-                    android:textColor="?android:attr/textColorPrimary" />
+                    android:focusable="false"
+                    android:clickable="false"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textStyle="bold" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Category Field -->
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:hint="Category"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                android:layout_marginBottom="20dp"
+                android:hint="Select Category *"
+                app:hintTextColor="?attr/colorPrimary"
+                app:endIconMode="custom"
+                app:endIconDrawable="@android:drawable/arrow_down_float"
+                app:endIconTint="?attr/colorOnSurfaceVariant"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etCategory"
@@ -56,15 +71,19 @@
                     android:layout_height="wrap_content"
                     android:focusable="false"
                     android:clickable="true"
-                    android:cursorVisible="false" />
+                    android:cursorVisible="false"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textStyle="bold" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Description Field -->
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="24dp"
                 android:hint="Description (Optional)"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                app:hintTextColor="?attr/colorOnSurfaceVariant"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etDescription"
@@ -72,28 +91,34 @@
                     android:layout_height="wrap_content"
                     android:inputType="textMultiLine"
                     android:minLines="3"
-                    android:gravity="top|start"/>
+                    android:gravity="top|start"
+                    android:textColor="?attr/colorOnSurface" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Photo Upload Header -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Photo (Optional)"
-                android:layout_marginBottom="8dp"
-                android:textStyle="bold" />
+                android:text="Photo Evidence (Optional)"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorOnSurface"
+                android:textStyle="bold"
+                android:layout_marginBottom="10dp" />
 
+            <!-- Photo Upload Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cvAddPhoto"
                 android:layout_width="match_parent"
-                android:layout_height="150dp"
+                android:layout_height="140dp"
                 android:layout_marginBottom="32dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="2dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
                 app:strokeWidth="1dp"
-                app:strokeColor="#E0E0E0"
+                app:strokeColor="?attr/colorOutlineVariant"
                 android:clickable="true"
                 android:focusable="true"
-                android:background="?attr/selectableItemBackground">
+                android:foreground="?attr/selectableItemBackground">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -103,8 +128,8 @@
                     android:gravity="center">
 
                     <ImageView
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
                         android:src="@android:drawable/ic_menu_camera"
                         app:tint="?attr/colorPrimary" />
 
@@ -112,26 +137,32 @@
                         android:id="@+id/tvPhotoStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="No Photo Selected"
+                        android:text="Tap to Add Photo"
                         android:layout_marginTop="8dp"
-                        android:textColor="?attr/colorPrimary"/>
+                        android:textAppearance="?attr/textAppearanceLabelLarge"
+                        android:textColor="?attr/colorPrimary"
+                        android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Submit Button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSubmit"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="Submit Report"
-                android:layout_marginBottom="16dp"
-                android:enabled="false"/>
+                android:layout_marginBottom="12dp"
+                android:enabled="false"
+                style="@style/Widget.Material3.Button" />
 
+            <!-- Cancel Button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancel"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="Cancel" />
+                android:text="Cancel"
+                android:textColor="?attr/colorOnSurface" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

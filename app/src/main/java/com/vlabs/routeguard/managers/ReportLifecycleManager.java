@@ -5,8 +5,6 @@ import com.vlabs.routeguard.utils.ReportExpirationConfig;
 
 public class ReportLifecycleManager {
 
-    private static final long EXPIRY_GRACE_MS = 60_000L; // 60 seconds
-
     /**
      * Gets the lifetime of a specific report category in milliseconds.
      * Future metadata from Firestore will be checked here first.
@@ -15,10 +13,6 @@ public class ReportLifecycleManager {
      * @return The lifetime of the category in milliseconds.
      */
     public long getCategoryLifetime(ReportType type) {
-        // TODO: In the future, check Firestore category metadata (expiryMinutes) here.
-        // If metadata exists, return metadata * 60_000L;
-        
-        // Fallback to static configuration
         return ReportExpirationConfig.getExpirationDuration(type);
     }
 
@@ -35,13 +29,13 @@ public class ReportLifecycleManager {
     }
 
     /**
-     * Checks if a given expiration timestamp is considered expired based on current time
-     * with a small grace period to prevent clock drift issues.
+     * Checks if a given expiration timestamp is considered expired based on current time.
      *
      * @param expiresAt The timestamp when the report expires in milliseconds.
      * @return true if the report is expired, false otherwise.
      */
     public boolean isExpired(long expiresAt) {
-        return (expiresAt + EXPIRY_GRACE_MS) < System.currentTimeMillis();
+        if (expiresAt <= 0) return false;
+        return System.currentTimeMillis() >= expiresAt;
     }
 }

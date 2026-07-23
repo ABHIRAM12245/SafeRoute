@@ -91,6 +91,22 @@ public class UserFirestoreRepository {
     }
 
     /**
+     * Updates the FCM token for a user.
+     *
+     * @param userId The ID of the user.
+     * @param token  The new FCM token.
+     */
+    public void updateFcmToken(String userId, String token) {
+        if (userId == null || userId.trim().isEmpty() || token == null || token.trim().isEmpty()) {
+            return;
+        }
+
+        db.collection("users").document(userId)
+                .update("fcmToken", token)
+                .addOnFailureListener(e -> android.util.Log.e("UserFirestoreRepo", "Failed to update FCM token", e));
+    }
+
+    /**
      * Retrieves a user from Firestore.
      *
      * @param userId   The ID of the user to retrieve.

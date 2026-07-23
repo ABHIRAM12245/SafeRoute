@@ -47,7 +47,7 @@ import android.location.Location;
 
 public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
 
-    private static final String ARG_REPORT_ID = "arg_report_id";
+    private static final String ARG_REPORT_IDS = "arg_report_ids";
     private static final String ARG_USER_LAT = "arg_user_lat";
     private static final String ARG_USER_LON = "arg_user_lon";
 
@@ -70,6 +70,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
     private ConfirmationCount currentConfirmCount = null;
     private long reportTimestampMs = 0;
     
+    private java.util.ArrayList<String> reportIds = new java.util.ArrayList<>();
+    private int currentIndex = 0;
+    
     // Comments UI
     private CommentAdapter commentAdapter;
     private RecyclerView rvComments;
@@ -78,11 +81,12 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
     private EditText etCommentInput;
     private TextView tvCharCounter;
     private ImageButton btnSendComment;
+    private TextWatcher commentTextWatcher;
 
-    public static ReportDetailsBottomSheet newInstance(String reportId, double userLat, double userLon) {
+    public static ReportDetailsBottomSheet newInstance(java.util.ArrayList<String> reportIds, double userLat, double userLon) {
         ReportDetailsBottomSheet fragment = new ReportDetailsBottomSheet();
         Bundle args = new Bundle();
-        args.putString(ARG_REPORT_ID, reportId);
+        args.putStringArrayList(ARG_REPORT_IDS, reportIds);
         args.putDouble(ARG_USER_LAT, userLat);
         args.putDouble(ARG_USER_LON, userLon);
         fragment.setArguments(args);
@@ -109,35 +113,51 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
 
         view.findViewById(R.id.btnClose).setOnClickListener(v -> dismiss());
 
-        String reportId = getArguments() != null ? getArguments().getString(ARG_REPORT_ID) : null;
-        if (reportId != null) {
-            reportRepository.fetchReportById(reportId, new ReportRepository.SingleReportCallback() {
-                @Override
-                public void onSuccess(RoadReport report) {
-                    if (getActivity() == null) return;
-                    getActivity().runOnUiThread(() -> {
-                        reportTimestampMs = report.getTimestamp();
-                        updateUI(view, report);
-                        setupVoting(view, report);
-                        setupConfirmations(view, report);
-                        setupComments(view, reportId);
-                    });
-                }
+        if (getArguments() != null && getArguments().getStringArrayList(ARG_REPORT_IDS) != null) {
+            reportIds = getArguments().getStringArrayList(ARG_REPORT_IDS);
+        }
 
-                @Override
-                public void onError(String error) {
-                    if (getActivity() == null) return;
-                    getActivity().runOnUiThread(() -> dismiss());
-                }
-            });
+        setupClusterNavigation(view);
+
+        if (reportIds != null && !reportIds.isEmpty()) {
+            loadReportAtIndex(currentIndex, view);
         } else {
             dismiss();
         }
     }
 
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    private void setupClusterNavigation(View view) {
+        View llClusterNavigation = view.findViewById(R.id.llClusterNavigation);
+        if (reportIds == null || reportIds.size() <= 1) {
+            if (llClusterNavigation != null) llClusterNavigation.setVisibility(View.GONE);
+            return;
+        }
+
+        if (llClusterNavigation != null) llClusterNavigation.setVisibility(View.VISIBLE);
+        
+        ImageButton btnPrev = view.findViewById(R.id.btnPrevReport);
+        ImageButton btnNext = view.findViewById(R.id.btnNextReport);
+        
+        if (btnPrev != null) {
+            btnPrev.setOnClickListener(v -> {
+                if (currentIndex > 0) {
+                    currentIndex--;
+                    loadReportAtIndex(currentIndex, view);
+                }
+            });
+        }
+        
+        if (btnNext != null) {
+            btnNext.setOnClickListener(v -> {
+                if (currentIndex < reportIds.size() - 1) {
+                    currentIndex++;
+                    loadReportAtIndex(currentIndex, view);
+                }
+            });
+        }
+    }
+
+    private void cleanupListeners() {
         if (voteCountListener != null) {
             voteCountListener.remove();
             voteCountListener = null;
@@ -149,10 +169,83 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         if (homeViewModel != null) {
             homeViewModel.stopConfirmationListeners();
             homeViewModel.stopCommentsListener();
+            try {
+                homeViewModel.getConfirmationCount().removeObservers(getViewLifecycleOwner());
+                homeViewModel.getUserConfirmation().removeObservers(getViewLifecycleOwner());
+                homeViewModel.getCommentsLoading().removeObservers(getViewLifecycleOwner());
+                homeViewModel.getComments().removeObservers(getViewLifecycleOwner());
+                homeViewModel.getCommentSubmitState().removeObservers(getViewLifecycleOwner());
+            } catch (Exception ignored) {}
         }
+        if (etCommentInput != null && commentTextWatcher != null) {
+            etCommentInput.removeTextChangedListener(commentTextWatcher);
+            commentTextWatcher = null;
+        }
+        // Reset states
+        currentVoteCount = null;
+        currentConfirmCount = null;
+        lastKnownUserVoteType = null;
+        lastKnownUserConfirmation = null;
+        isVoting = false;
+        isConfirming = false;
+    }
+
+    private void loadReportAtIndex(int index, View view) {
+        if (reportIds == null || index < 0 || index >= reportIds.size()) return;
+        
+        cleanupListeners();
+        
+        String reportId = reportIds.get(index);
+        
+        TextView tvProgress = view.findViewById(R.id.tvClusterProgress);
+        if (tvProgress != null && reportIds.size() > 1) {
+            tvProgress.setText("Report " + (index + 1) + " of " + reportIds.size());
+        }
+        
+        ImageButton btnPrev = view.findViewById(R.id.btnPrevReport);
+        ImageButton btnNext = view.findViewById(R.id.btnNextReport);
+        if (btnPrev != null) btnPrev.setEnabled(index > 0);
+        if (btnNext != null) btnNext.setEnabled(index < reportIds.size() - 1);
+        if (btnPrev != null) btnPrev.setAlpha(index > 0 ? 1.0f : 0.3f);
+        if (btnNext != null) btnNext.setAlpha(index < reportIds.size() - 1 ? 1.0f : 0.3f);
+
+        reportRepository.fetchReportById(reportId, new ReportRepository.SingleReportCallback() {
+            @Override
+            public void onSuccess(RoadReport report) {
+                if (getActivity() == null || !isAdded() || getView() == null) return;
+                getActivity().runOnUiThread(() -> {
+                    if (getContext() == null || !isAdded() || getView() == null) return;
+                    reportTimestampMs = report.getTimestamp();
+                    updateUI(view, report);
+                    setupVoting(view, report);
+                    setupConfirmations(view, report);
+                    setupComments(view, reportId);
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                if (getActivity() == null || !isAdded()) return;
+                getActivity().runOnUiThread(() -> {
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), "This report has expired.", Toast.LENGTH_SHORT).show();
+                    }
+                    dismissAllowingStateLoss();
+                });
+            }
+        });
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        cleanupListeners();
     }
 
     private void updateUI(View view, RoadReport report) {
+        if (getContext() == null || !isAdded()) return;
+        Context ctx = getContext();
+
         ImageView ivIcon = view.findViewById(R.id.ivReportIcon);
         TextView tvType = view.findViewById(R.id.tvReportType);
         TextView tvTime = view.findViewById(R.id.tvReportTime);
@@ -164,18 +257,35 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         tvDesc.setText(report.getDescription());
         tvTime.setText(DateUtils.getRelativeTimeSpanString(report.getTimestamp()));
 
+        View cvReportPhoto = view.findViewById(R.id.cvReportPhoto);
+        ImageView ivReportPhoto = view.findViewById(R.id.ivReportPhoto);
+        
+        String photoUrl = report.getImageUrl();
+        if (photoUrl != null && !photoUrl.isEmpty() && isAdded()) {
+            cvReportPhoto.setVisibility(View.VISIBLE);
+            try {
+                com.bumptech.glide.Glide.with(this)
+                        .load(photoUrl)
+                        .into(ivReportPhoto);
+            } catch (Exception e) {
+                cvReportPhoto.setVisibility(View.GONE);
+            }
+        } else {
+            cvReportPhoto.setVisibility(View.GONE);
+        }
+
         // Expiry Status
         long timeRemaining = report.getExpiresAt() - System.currentTimeMillis();
         if (timeRemaining <= 0) {
             tvExpiryStatus.setText("Expired");
-            tvExpiryStatus.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_red_dark));
-        } else if (timeRemaining < 5 * 60 * 1000) {
-            tvExpiryStatus.setText("Expiring Soon");
-            tvExpiryStatus.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_orange_dark));
+            tvExpiryStatus.setTextColor(ContextCompat.getColor(ctx, android.R.color.holo_red_dark));
         } else {
-            long mins = timeRemaining / (60 * 1000);
-            tvExpiryStatus.setText("Expires in " + mins + " min");
-            tvExpiryStatus.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.darker_gray));
+            tvExpiryStatus.setText(formatExpiryStatus(timeRemaining));
+            if (timeRemaining < 15 * 60 * 1000L) {
+                tvExpiryStatus.setTextColor(ContextCompat.getColor(ctx, android.R.color.holo_orange_dark));
+            } else {
+                tvExpiryStatus.setTextColor(ContextCompat.getColor(ctx, android.R.color.darker_gray));
+            }
         }
 
         // Distance
@@ -205,8 +315,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
                 userRepository.getUser(report.getReporterId(), new UserRepository.GetUserCallback() {
                     @Override
                     public void onSuccess(User user) {
-                        if (getActivity() == null) return;
+                        if (getActivity() == null || !isAdded()) return;
                         getActivity().runOnUiThread(() -> {
+                            if (!isAdded() || getView() == null) return;
                             String name = user != null ? user.getDisplayName() : null;
                             if (name == null || name.trim().isEmpty()) {
                                 tvReporterName.setText("Anonymous");
@@ -218,8 +329,11 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
 
                     @Override
                     public void onFailure(Exception e) {
-                        if (getActivity() == null) return;
-                        getActivity().runOnUiThread(() -> tvReporterName.setText("Anonymous"));
+                        if (getActivity() == null || !isAdded()) return;
+                        getActivity().runOnUiThread(() -> {
+                            if (!isAdded() || getView() == null) return;
+                            tvReporterName.setText("Anonymous");
+                        });
                     }
                 });
             } else {
@@ -227,42 +341,69 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
             }
         }
 
+        // Verification Status Badge (Requirement 9 & Refinement #2)
+        TextView tvVerificationBadge = view.findViewById(R.id.tvVerificationBadge);
+        if (tvVerificationBadge != null) {
+            com.vlabs.routeguard.models.VerificationStatus vStatus = report.getVerificationStatus();
+            if (vStatus == null) vStatus = com.vlabs.routeguard.models.VerificationStatus.UNVERIFIED;
+            tvVerificationBadge.setText(vStatus.name());
+            switch (vStatus) {
+                case VERIFIED:
+                    tvVerificationBadge.setBackgroundResource(R.drawable.bg_chip_verified);
+                    tvVerificationBadge.setTextColor(ContextCompat.getColor(ctx, R.color.rg_on_primary_container));
+                    break;
+                case DISPUTED:
+                    tvVerificationBadge.setBackgroundResource(R.drawable.bg_chip_disputed);
+                    tvVerificationBadge.setTextColor(ContextCompat.getColor(ctx, android.R.color.holo_red_dark));
+                    break;
+                case EXPIRED:
+                    tvVerificationBadge.setBackgroundResource(R.drawable.bg_chip_expired);
+                    tvVerificationBadge.setTextColor(ContextCompat.getColor(ctx, android.R.color.darker_gray));
+                    break;
+                case UNVERIFIED:
+                default:
+                    tvVerificationBadge.setBackgroundResource(R.drawable.bg_chip_unverified);
+                    tvVerificationBadge.setTextColor(ContextCompat.getColor(ctx, R.color.rg_on_tertiary_container));
+                    break;
+            }
+        }
+
         switch (report.getType()) {
             case POLICE_CHECKING:
                 tvType.setText(getString(R.string.police_checking));
                 ivIcon.setImageResource(R.drawable.ic_police);
-                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark));
+                ivIcon.setColorFilter(ContextCompat.getColor(ctx, android.R.color.holo_blue_dark));
                 break;
             case ACCIDENT:
                 tvType.setText(getString(R.string.accident));
                 ivIcon.setImageResource(R.drawable.ic_accident);
-                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.holo_red_dark));
+                ivIcon.setColorFilter(ContextCompat.getColor(ctx, android.R.color.holo_red_dark));
                 break;
             case HEAVY_TRAFFIC:
                 tvType.setText(getString(R.string.heavy_traffic));
                 ivIcon.setImageResource(R.drawable.ic_traffic);
-                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.holo_orange_dark));
+                ivIcon.setColorFilter(ContextCompat.getColor(ctx, android.R.color.holo_orange_dark));
                 break;
             case ROAD_CONSTRUCTION:
                 tvType.setText(getString(R.string.road_construction));
                 ivIcon.setImageResource(R.drawable.ic_construction);
-                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.holo_orange_light));
+                ivIcon.setColorFilter(ContextCompat.getColor(ctx, android.R.color.holo_orange_light));
                 break;
             case ANIMAL_ON_ROAD:
                 tvType.setText(getString(R.string.animal_on_road));
                 ivIcon.setImageResource(R.drawable.ic_animal);
-                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.darker_gray));
+                ivIcon.setColorFilter(ContextCompat.getColor(ctx, android.R.color.darker_gray));
                 break;
             case WATER_LOGGING:
                 tvType.setText(getString(R.string.water_logging));
                 ivIcon.setImageResource(R.drawable.ic_water_logging);
-                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.holo_blue_light));
+                ivIcon.setColorFilter(ContextCompat.getColor(ctx, android.R.color.holo_blue_light));
                 break;
             case OTHER:
             default:
                 tvType.setText(getString(R.string.other));
                 ivIcon.setImageResource(R.drawable.ic_other);
-                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.darker_gray));
+                ivIcon.setColorFilter(ContextCompat.getColor(ctx, android.R.color.darker_gray));
                 break;
         }
     }
@@ -273,34 +414,33 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         String reportId = report.getReportId();
 
         String currentUserId = SessionManager.getInstance().getCurrentUser() != null ? SessionManager.getInstance().getCurrentUser().getUid() : "";
-        boolean isOwnReport = report.getReporterId() != null && report.getReporterId().equals(currentUserId);
+        boolean canVote = new com.vlabs.routeguard.managers.TrustManager().canUserVote(currentUserId, report.getReporterId());
 
         if (btnUpvote != null) {
-            if (isOwnReport) {
+            if (!canVote) {
                 btnUpvote.setEnabled(false);
                 btnUpvote.setAlpha(0.5f);
             } else {
-                btnUpvote.setOnClickListener(v -> submitVote(reportId, VotingManager.VoteType.UPVOTE, btnUpvote, btnDownvote));
+                btnUpvote.setOnClickListener(v -> submitVote(report, VotingManager.VoteType.UPVOTE, btnUpvote, btnDownvote));
             }
         }
 
         if (btnDownvote != null) {
-            if (isOwnReport) {
+            if (!canVote) {
                 btnDownvote.setEnabled(false);
                 btnDownvote.setAlpha(0.5f);
             } else {
-                btnDownvote.setOnClickListener(v -> submitVote(reportId, VotingManager.VoteType.DOWNVOTE, btnUpvote, btnDownvote));
+                btnDownvote.setOnClickListener(v -> submitVote(report, VotingManager.VoteType.DOWNVOTE, btnUpvote, btnDownvote));
             }
         }
 
-        fetchVoteData();
+        fetchVoteData(reportId);
     }
 
-    private void fetchVoteData() {
-        if (getView() == null || getArguments() == null) return;
+    private void fetchVoteData(String reportId) {
+        if (getView() == null || !isAdded()) return;
         
-        String reportId = getArguments().getString(ARG_REPORT_ID, "unknown_report_id");
-        if (reportId == null || reportId.equals("unknown_report_id")) return;
+        if (reportId == null || reportId.isEmpty()) return;
 
         FirebaseUser user = SessionManager.getInstance().getCurrentUser();
         if (user == null) return;
@@ -315,8 +455,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         userVoteListener = votingManager.startCurrentUserVoteListener(reportId, user.getUid(), new VotingManager.GetCurrentUserVoteCallback() {
             @Override
             public void onSuccess(ReportVote vote) {
-                if (getActivity() == null) return;
+                if (getActivity() == null || !isAdded()) return;
                 getActivity().runOnUiThread(() -> {
+                    if (!isAdded() || getView() == null) return;
                     lastKnownUserVoteType = vote != null ? vote.getVoteType() : null;
                     if (!isVoting) {
                         updateVoteButtons(btnUpvote, btnDownvote, lastKnownUserVoteType);
@@ -326,8 +467,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
 
             @Override
             public void onFailure(Exception e) {
-                if (getActivity() == null) return;
+                if (getActivity() == null || !isAdded()) return;
                 getActivity().runOnUiThread(() -> {
+                    if (!isAdded() || getView() == null) return;
                     lastKnownUserVoteType = null;
                     if (!isVoting) {
                         updateVoteButtons(btnUpvote, btnDownvote, null);
@@ -340,8 +482,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         voteCountListener = votingManager.startVoteCountListener(reportId, new VotingManager.GetVoteCountCallback() {
             @Override
             public void onSuccess(VoteCount voteCount) {
-                if (getActivity() == null) return;
+                if (getActivity() == null || !isAdded()) return;
                 getActivity().runOnUiThread(() -> {
+                    if (!isAdded() || getView() == null) return;
                     currentVoteCount = voteCount;
                     if (tvUpvoteCount != null) {
                         tvUpvoteCount.setText(String.valueOf(voteCount.getUpvoteCount()));
@@ -367,9 +510,18 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         }
     }
 
-    private void submitVote(String reportId, VotingManager.VoteType voteType, ImageButton btnUpvote, ImageButton btnDownvote) {
+    private void submitVote(RoadReport report, VotingManager.VoteType voteType, ImageButton btnUpvote, ImageButton btnDownvote) {
+        if (report == null || report.getReportId() == null || !isAdded()) return;
         FirebaseUser user = SessionManager.getInstance().getCurrentUser();
         if (user == null || isVoting) {
+            return;
+        }
+
+        // Refinement #4: Self-voting protection check
+        if (!new com.vlabs.routeguard.managers.TrustManager().canUserVote(user.getUid(), report.getReporterId())) {
+            if (getContext() != null) {
+                Toast.makeText(getContext(), "You cannot vote on your own report.", Toast.LENGTH_SHORT).show();
+            }
             return;
         }
 
@@ -379,10 +531,13 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         btnDownvote.setEnabled(false);
         updateVoteButtons(btnUpvote, btnDownvote, voteType);
 
+        String reportId = report.getReportId();
+
         new Thread(() -> {
-            VoteResult result = votingManager.vote(reportId, voteType, user.getUid());
-            if (getActivity() == null) return;
+            VoteResult result = votingManager.vote(reportId, report.getReporterId(), voteType, user.getUid());
+            if (getActivity() == null || !isAdded()) return;
             getActivity().runOnUiThread(() -> {
+                if (!isAdded() || getView() == null) return;
                 isVoting = false;
                 btnUpvote.setEnabled(true);
                 btnDownvote.setEnabled(true);
@@ -390,18 +545,45 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
                 if (result == null || !result.isSuccess()) {
                     // Revert to last known good state
                     updateVoteButtons(btnUpvote, btnDownvote, lastKnownUserVoteType);
-                    android.widget.Toast.makeText(requireContext(), "Failed to vote. Check your connection.", android.widget.Toast.LENGTH_SHORT).show();
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), "Failed to vote. Check your connection.", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    // Refinement #3: Invoke TrustRepository to recalculate report verification and creator trust
+                    boolean isUp = voteType == VotingManager.VoteType.UPVOTE;
+                    new com.vlabs.routeguard.repositories.TrustRepository().processReportVote(report, user.getUid(), isUp, new com.vlabs.routeguard.repositories.TrustRepository.VoteSubmissionCallback() {
+                        @Override
+                        public void onSuccess(com.vlabs.routeguard.models.VerificationStatus newVerificationStatus) {
+                            if (getActivity() == null || !isAdded()) return;
+                            getActivity().runOnUiThread(() -> {
+                                if (!isAdded() || getView() == null) return;
+                                TextView tvBadge = getView().findViewById(R.id.tvVerificationBadge);
+                                if (tvBadge != null && newVerificationStatus != null) {
+                                    tvBadge.setText(newVerificationStatus.name());
+                                }
+                            });
+                        }
+
+                        @Override
+                        public void onError(String errorMsg) {
+                            if (getActivity() == null || !isAdded()) return;
+                            getActivity().runOnUiThread(() -> {
+                                if (errorMsg != null && getContext() != null) {
+                                    Toast.makeText(getContext(), errorMsg, Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    });
                 }
-                // If successful, the Firestore realtime listener will handle the permanent state update
             });
         }).start();
     }
 
     private void updateVoteButtons(ImageButton btnUpvote, ImageButton btnDownvote, VotingManager.VoteType userVoteType) {
-        if (btnUpvote == null || btnDownvote == null) return;
+        if (btnUpvote == null || btnDownvote == null || getContext() == null) return;
 
         int defaultColor = Color.parseColor("#757575");
-        int highlightColor = ContextCompat.getColor(requireContext(), R.color.black);
+        int highlightColor = ContextCompat.getColor(getContext(), R.color.black);
 
         if (userVoteType == VotingManager.VoteType.UPVOTE) {
             btnUpvote.setColorFilter(highlightColor);
@@ -416,7 +598,7 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void setupConfirmations(View view, RoadReport report) {
-        if (homeViewModel == null) return;
+        if (homeViewModel == null || !isAdded()) return;
         
         String reportId = report.getReportId();
         FirebaseUser user = SessionManager.getInstance().getCurrentUser();
@@ -450,8 +632,10 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
             homeViewModel.fetchUserConfirmation(reportId, userId);
             
             homeViewModel.startConfirmationListeners(reportId, userId);
-            
-            homeViewModel.getConfirmationCount().observe(this, count -> {
+
+            homeViewModel.getConfirmationCount().removeObservers(getViewLifecycleOwner());
+            homeViewModel.getConfirmationCount().observe(getViewLifecycleOwner(), count -> {
+                if (!isAdded() || getView() == null) return;
                 if (count != null) {
                     currentConfirmCount = count;
                     updateTrustScoreUI(tvTrustScore);
@@ -464,7 +648,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
                 }
             });
             
-            homeViewModel.getUserConfirmation().observe(this, conf -> {
+            homeViewModel.getUserConfirmation().removeObservers(getViewLifecycleOwner());
+            homeViewModel.getUserConfirmation().observe(getViewLifecycleOwner(), conf -> {
+                if (!isAdded() || getView() == null) return;
                 lastKnownUserConfirmation = conf;
                 if (!isConfirming) {
                     updateConfirmationButtons(btnConfirmActive, btnConfirmGone, lastKnownUserConfirmation != null ? lastKnownUserConfirmation.getStatus() : null);
@@ -474,7 +660,7 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
     }
     
     private void submitConfirmation(String reportId, String userId, ReportConfirmation.Status status, com.google.android.material.button.MaterialButton btnActive, com.google.android.material.button.MaterialButton btnGone) {
-        if (userId == null || userId.isEmpty() || isConfirming) return;
+        if (userId == null || userId.isEmpty() || isConfirming || !isAdded()) return;
         
         isConfirming = true;
         btnActive.setEnabled(false);
@@ -482,47 +668,88 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         updateConfirmationButtons(btnActive, btnGone, status);
         
         confirmationManager.confirmReport(reportId, userId, status, lastKnownUserConfirmation, (success, error) -> {
-            if (getActivity() == null) return;
+            if (getActivity() == null || !isAdded()) return;
             getActivity().runOnUiThread(() -> {
+                if (!isAdded() || getView() == null) return;
                 isConfirming = false;
                 btnActive.setEnabled(true);
                 btnGone.setEnabled(true);
                 if (!success) {
                     updateConfirmationButtons(btnActive, btnGone, lastKnownUserConfirmation != null ? lastKnownUserConfirmation.getStatus() : null);
-                    if (error != null) {
-                        android.widget.Toast.makeText(requireContext(), error, android.widget.Toast.LENGTH_SHORT).show();
+                    if (error != null && getContext() != null) {
+                        Toast.makeText(getContext(), error, Toast.LENGTH_SHORT).show();
                     }
                 }
             });
         });
     }
     
+    private String formatExpiryStatus(long timeRemainingMs) {
+        if (timeRemainingMs <= 0) {
+            return "Expired";
+        }
+        long minutes = timeRemainingMs / (60 * 1000L);
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        if (days > 0) {
+            long remainingHours = hours % 24;
+            if (remainingHours > 0) {
+                return "Expires in " + days + (days == 1 ? " day " : " days ") + remainingHours + (remainingHours == 1 ? " hr" : " hrs");
+            } else {
+                return "Expires in " + days + (days == 1 ? " day" : " days");
+            }
+        } else if (hours > 0) {
+            long remainingMins = minutes % 60;
+            if (remainingMins > 0) {
+                return "Expires in " + hours + (hours == 1 ? " hr " : " hrs ") + remainingMins + " min";
+            } else {
+                return "Expires in " + hours + (hours == 1 ? " hr" : " hrs");
+            }
+        } else {
+            return "Expires in " + Math.max(1, minutes) + " min";
+        }
+    }
+
     private void updateConfirmationButtons(com.google.android.material.button.MaterialButton btnActive, com.google.android.material.button.MaterialButton btnGone, ReportConfirmation.Status status) {
-        if (btnActive == null || btnGone == null) return;
-        int defaultColor = ContextCompat.getColor(requireContext(), android.R.color.transparent);
-        int highlightColor = ContextCompat.getColor(requireContext(), R.color.black);
-        int defaultTextColor = ContextCompat.getColor(requireContext(), R.color.black);
-        int highlightTextColor = ContextCompat.getColor(requireContext(), android.R.color.white);
+        if (btnActive == null || btnGone == null || getView() == null || getContext() == null) return;
+        Context ctx = getContext();
+        int defaultColor = ContextCompat.getColor(ctx, android.R.color.transparent);
+        int activeColor = ContextCompat.getColor(ctx, R.color.rg_primary);
+        int goneColor = ContextCompat.getColor(ctx, R.color.rg_tertiary);
+        int defaultTextColor = com.google.android.material.color.MaterialColors.getColor(
+            getView(),
+            com.google.android.material.R.attr.colorOnSurface
+        );
+        int highlightTextColor = ContextCompat.getColor(ctx, android.R.color.white);
         
         if (status == ReportConfirmation.Status.ACTIVE) {
-            btnActive.setBackgroundColor(highlightColor);
+            btnActive.setBackgroundColor(activeColor);
             btnActive.setTextColor(highlightTextColor);
+            btnActive.setText("✓ Still Exists");
             btnGone.setBackgroundColor(defaultColor);
             btnGone.setTextColor(defaultTextColor);
+            btnGone.setText("👎 Not Found");
         } else if (status == ReportConfirmation.Status.GONE) {
-            btnGone.setBackgroundColor(highlightColor);
+            btnGone.setBackgroundColor(goneColor);
             btnGone.setTextColor(highlightTextColor);
+            btnGone.setText("✓ Not Found");
             btnActive.setBackgroundColor(defaultColor);
             btnActive.setTextColor(defaultTextColor);
+            btnActive.setText("👍 Still Exists");
         } else {
             btnActive.setBackgroundColor(defaultColor);
             btnActive.setTextColor(defaultTextColor);
+            btnActive.setText("👍 Still Exists");
             btnGone.setBackgroundColor(defaultColor);
             btnGone.setTextColor(defaultTextColor);
+            btnGone.setText("👎 Not Found");
         }
     }
 
     private void setupComments(View view, String reportId) {
+        if (getContext() == null || !isAdded()) return;
+
         rvComments = view.findViewById(R.id.rvComments);
         pbCommentsLoading = view.findViewById(R.id.pbCommentsLoading);
         tvCommentsEmptyState = view.findViewById(R.id.tvCommentsEmptyState);
@@ -536,38 +763,48 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
         rvComments.setAdapter(commentAdapter);
 
         // Character Counter & Validation
-        etCommentInput.addTextChangedListener(new TextWatcher() {
+        if (commentTextWatcher != null) {
+            etCommentInput.removeTextChangedListener(commentTextWatcher);
+        }
+        commentTextWatcher = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 int length = s != null ? s.length() : 0;
-                tvCharCounter.setText(length + "/200");
+                if (tvCharCounter != null) tvCharCounter.setText(length + "/200");
                 
                 String trimmed = s != null ? s.toString().trim() : "";
-                HomeViewModel.CommentSubmitState currentState = homeViewModel.getCommentSubmitState().getValue();
-                if (currentState != HomeViewModel.CommentSubmitState.LOADING) {
-                    boolean enabled = !trimmed.isEmpty() && trimmed.length() <= 200;
-                    btnSendComment.setEnabled(enabled);
-                    btnSendComment.setAlpha(enabled ? 1.0f : 0.5f);
+                if (homeViewModel != null) {
+                    HomeViewModel.CommentSubmitState currentState = homeViewModel.getCommentSubmitState().getValue();
+                    if (currentState != HomeViewModel.CommentSubmitState.LOADING && btnSendComment != null) {
+                        boolean enabled = !trimmed.isEmpty() && trimmed.length() <= 200;
+                        btnSendComment.setEnabled(enabled);
+                        btnSendComment.setAlpha(enabled ? 1.0f : 0.5f);
+                    }
                 }
             }
 
             @Override
             public void afterTextChanged(Editable s) {}
-        });
+        };
+        etCommentInput.addTextChangedListener(commentTextWatcher);
 
         // Send Button
         btnSendComment.setOnClickListener(v -> {
             String text = etCommentInput.getText().toString().trim();
             if (text.isEmpty() || text.length() > 200) return;
 
-            homeViewModel.postComment(reportId, text);
+            if (homeViewModel != null) {
+                homeViewModel.postComment(reportId, text);
+            }
         });
 
         // Observers
+        homeViewModel.getCommentsLoading().removeObservers(getViewLifecycleOwner());
         homeViewModel.getCommentsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            if (!isAdded() || getView() == null) return;
             if (isLoading != null && isLoading) {
                 pbCommentsLoading.setVisibility(View.VISIBLE);
                 rvComments.setVisibility(View.GONE);
@@ -577,7 +814,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
             }
         });
 
+        homeViewModel.getComments().removeObservers(getViewLifecycleOwner());
         homeViewModel.getComments().observe(getViewLifecycleOwner(), comments -> {
+            if (!isAdded() || getView() == null) return;
             if (comments != null) {
                 int oldSize = commentAdapter.getCommentsCount();
                 commentAdapter.setComments(comments);
@@ -603,8 +842,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
             }
         });
 
+        homeViewModel.getCommentSubmitState().removeObservers(getViewLifecycleOwner());
         homeViewModel.getCommentSubmitState().observe(getViewLifecycleOwner(), state -> {
-            if (state == null) return;
+            if (!isAdded() || getView() == null || state == null) return;
             
             switch (state) {
                 case LOADING:
@@ -621,7 +861,9 @@ public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
                     boolean enabled = !currentText.isEmpty() && currentText.length() <= 200;
                     btnSendComment.setEnabled(enabled);
                     btnSendComment.setAlpha(enabled ? 1.0f : 0.5f);
-                    Toast.makeText(requireContext(), "Failed to send comment", Toast.LENGTH_SHORT).show();
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), "Failed to send comment", Toast.LENGTH_SHORT).show();
+                    }
                     homeViewModel.resetCommentSubmitState();
                     break;
                 case IDLE:

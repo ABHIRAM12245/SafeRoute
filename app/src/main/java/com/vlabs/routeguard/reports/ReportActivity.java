@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Bundle;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -25,8 +24,6 @@ import com.vlabs.routeguard.fragments.CategorySelectionBottomSheet;
 import com.vlabs.routeguard.managers.CameraCaptureManager;
 import com.vlabs.routeguard.managers.CameraPermissionManager;
 import com.vlabs.routeguard.managers.SessionManager;
-import com.vlabs.routeguard.managers.CameraPermissionManager;
-import com.vlabs.routeguard.managers.SessionManager;
 import com.vlabs.routeguard.models.PhotoAttachment;
 import com.vlabs.routeguard.utils.IntentConstants;
 import com.vlabs.routeguard.utils.NetworkUtils;
@@ -34,7 +31,6 @@ import com.vlabs.routeguard.viewmodels.ReportCreationViewModel;
 import com.vlabs.routeguard.viewmodels.SubmissionState;
 
 import java.io.IOException;
-import com.vlabs.routeguard.viewmodels.SubmissionState;
 
 import org.osmdroid.util.GeoPoint;
 
@@ -85,10 +81,15 @@ public class ReportActivity extends BaseActivity {
             viewModel.setLocation(point);
 
             try {
-                com.vlabs.routeguard.models.ReportType category = com.vlabs.routeguard.models.ReportType.valueOf(categoryName);
-                binding.etCategory.setText(category.getDisplayName());
-                viewModel.setCategory(category);
-            } catch (IllegalArgumentException e) {
+                if (categoryName != null) {
+                    com.vlabs.routeguard.models.ReportType category = com.vlabs.routeguard.models.ReportType.valueOf(categoryName);
+                    binding.etCategory.setText(category.getDisplayName());
+                    viewModel.setCategory(category);
+                } else {
+                    Toast.makeText(this, "Invalid category.", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+            } catch (Exception e) {
                 Toast.makeText(this, "Invalid category.", Toast.LENGTH_SHORT).show();
                 finish();
             }
@@ -102,6 +103,16 @@ public class ReportActivity extends BaseActivity {
         binding.topAppBar.setNavigationOnClickListener(v -> finish());
         
         binding.btnCancel.setOnClickListener(v -> finish());
+
+        binding.etCategory.setOnClickListener(v -> {
+            if (isFinishing() || isDestroyed()) return;
+            CategorySelectionBottomSheet bottomSheet = CategorySelectionBottomSheet.newInstance();
+            bottomSheet.setOnCategorySelectedListener(category -> {
+                binding.etCategory.setText(category.getDisplayName());
+                viewModel.setCategory(category);
+            });
+            bottomSheet.show(getSupportFragmentManager(), "CategorySelection");
+        });
         
         binding.btnSubmit.setOnClickListener(v -> {
             if (!NetworkUtils.isNetworkAvailable(this)) {
@@ -110,11 +121,13 @@ public class ReportActivity extends BaseActivity {
             }
             
             viewModel.setDescription(binding.etDescription.getText().toString());
+            binding.btnSubmit.setEnabled(false); // Synchronously prevent rapid duplicate clicks
             
             if (SessionManager.getInstance().getCurrentUser() != null) {
                 String reporterId = SessionManager.getInstance().getCurrentUser().getUid();
                 viewModel.submitReport(reporterId);
             } else {
+                binding.btnSubmit.setEnabled(true);
                 Toast.makeText(this, "Session invalid. Please login again.", Toast.LENGTH_SHORT).show();
             }
         });
@@ -123,11 +136,7 @@ public class ReportActivity extends BaseActivity {
             if (viewModel.hasAttachment()) {
                 showPhotoOptionsBottomSheet();
             } else {
-                if (!cameraPermissionManager.isCameraPermissionGranted()) {
-                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
-                } else {
-                    prepareCamera();
-                }
+                checkAndRequestCameraPermission();
             }
         });
 
@@ -143,7 +152,42 @@ public class ReportActivity extends BaseActivity {
         updatePhotoAttachmentStatus();
     }
 
+    private void checkAndRequestCameraPermission() {
+        if (cameraPermissionManager.isCameraPermissionGranted()) {
+            prepareCamera();
+        } else if (cameraPermissionManager.shouldShowRationale(this)) {
+            showPermissionRationaleDialog();
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
+        }
+    }
+
+    private void showPermissionRationaleDialog() {
+        if (isFinishing() || isDestroyed()) return;
+        new AlertDialog.Builder(this)
+                .setTitle("Camera Permission Required")
+                .setMessage("Camera permission is required to capture photo evidence of road hazards. Please grant permission to attach a photo.")
+                .setPositiveButton("Grant Permission", (dialog, which) -> {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    private void showPermanentlyDeniedDialog() {
+        if (isFinishing() || isDestroyed()) return;
+        new AlertDialog.Builder(this)
+                .setTitle("Camera Permission Required")
+                .setMessage("Camera permission is permanently denied. Please enable Camera permission in App Settings to attach photo evidence.")
+                .setPositiveButton("Open Settings", (dialog, which) -> {
+                    cameraPermissionManager.openAppSettings(this);
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
     private void showPhotoOptionsBottomSheet() {
+        if (isFinishing() || isDestroyed()) return;
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this);
         android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
         layout.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -157,11 +201,7 @@ public class ReportActivity extends BaseActivity {
         tvRetake.setOnClickListener(v -> {
             bottomSheetDialog.dismiss();
             cameraCaptureManager.deleteTempPhoto();
-            if (!cameraPermissionManager.isCameraPermissionGranted()) {
-                cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
-            } else {
-                prepareCamera();
-            }
+            checkAndRequestCameraPermission();
         });
 
         android.widget.TextView tvRemove = new android.widget.TextView(this);
@@ -204,28 +244,33 @@ public class ReportActivity extends BaseActivity {
     }
 
     private void updatePhotoAttachmentStatus() {
-        android.widget.LinearLayout ll = (android.widget.LinearLayout) binding.cvAddPhoto.getChildAt(1);
-        View cameraIcon = ll.getChildAt(0);
+        View cameraIcon = binding.cvAddPhoto.findViewById(R.id.tvPhotoStatus) != null
+                ? ((View) binding.cvAddPhoto.findViewById(R.id.tvPhotoStatus).getParent()).findViewById(R.id.tvPhotoStatus)
+                : null;
+        View promptContainer = binding.cvAddPhoto.getChildCount() > 1 ? binding.cvAddPhoto.getChildAt(1) : binding.cvAddPhoto.getChildAt(0);
 
         if (viewModel.hasAttachment()) {
             binding.tvPhotoStatus.setText("Photo Attached");
             previewImageView.setImageURI(viewModel.getAttachment().getUri());
             previewImageView.setVisibility(View.VISIBLE);
-            cameraIcon.setVisibility(View.GONE);
+            if (promptContainer != null) promptContainer.setVisibility(View.GONE);
         } else {
             binding.tvPhotoStatus.setText("No Photo Selected");
             previewImageView.setVisibility(View.GONE);
             previewImageView.setImageDrawable(null);
-            cameraIcon.setVisibility(View.VISIBLE);
+            if (promptContainer != null) promptContainer.setVisibility(View.VISIBLE);
         }
     }
 
     private void setupObservers() {
         viewModel.getIsSubmitEnabled().observe(this, isEnabled -> {
-            binding.btnSubmit.setEnabled(isEnabled);
+            if (viewModel.getSubmissionState().getValue() != com.vlabs.routeguard.viewmodels.SubmissionState.SUBMITTING) {
+                binding.btnSubmit.setEnabled(isEnabled);
+            }
         });
 
         viewModel.getSubmissionState().observe(this, state -> {
+            if (isFinishing() || isDestroyed()) return;
             switch (state) {
                 case SUBMITTING:
                     binding.btnSubmit.setEnabled(false);
@@ -252,7 +297,7 @@ public class ReportActivity extends BaseActivity {
         });
 
         viewModel.getErrorMessage().observe(this, error -> {
-            if (error != null && !error.isEmpty()) {
+            if (error != null && !error.isEmpty() && !isFinishing() && !isDestroyed()) {
                 Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
             }
         });
@@ -260,14 +305,20 @@ public class ReportActivity extends BaseActivity {
 
     private void setupPermissionLaunchers() {
         cameraPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+            if (isFinishing() || isDestroyed()) return;
             if (isGranted) {
                 prepareCamera();
             } else {
-                Toast.makeText(this, "Camera permission denied.", Toast.LENGTH_SHORT).show();
+                if (cameraPermissionManager.shouldShowRationale(this)) {
+                    showPermissionRationaleDialog();
+                } else {
+                    showPermanentlyDeniedDialog();
+                }
             }
         });
 
         cameraLauncher = registerForActivityResult(new ActivityResultContracts.TakePicture(), success -> {
+            if (isFinishing() || isDestroyed()) return;
             if (success) {
                 android.net.Uri tempUri = cameraCaptureManager.getTempPhotoUri();
                 if (tempUri != null) {
@@ -283,6 +334,7 @@ public class ReportActivity extends BaseActivity {
     }
 
     private void showDuplicateDialog() {
+        if (isFinishing() || isDestroyed()) return;
         com.vlabs.routeguard.models.RoadReport duplicate = viewModel.getDuplicateReport();
         if (duplicate == null) return;
 
@@ -291,7 +343,7 @@ public class ReportActivity extends BaseActivity {
         int ageMins = (int) (ageMs / (1000 * 60));
         
         String message = String.format("Category: %s\nAge: %d mins\nConfidence: %d/100\nDistance: %.0f meters",
-                duplicate.getType().getDisplayName(),
+                duplicate.getType() != null ? duplicate.getType().getDisplayName() : "Hazard",
                 ageMins,
                 duplicate.getConfidenceScore(),
                 distance);
@@ -300,15 +352,20 @@ public class ReportActivity extends BaseActivity {
                 .setTitle("Already reported nearby")
                 .setMessage(message)
                 .setPositiveButton("Confirm Existing", (dialog, which) -> {
-                    // Tell HomeActivity to select this marker by returning it in the intent
+                    if (isFinishing() || isDestroyed()) return;
                     Intent resultIntent = new Intent();
                     resultIntent.putExtra(IntentConstants.EXTRA_REPORT_ID, duplicate.getReportId());
                     setResult(RESULT_OK, resultIntent);
                     finish();
                 })
                 .setNeutralButton("Create Anyway", (dialog, which) -> {
-                    String reporterId = SessionManager.getInstance().getCurrentUser().getUid();
-                    viewModel.submitReportInternal(reporterId, true);
+                    if (isFinishing() || isDestroyed()) return;
+                    if (SessionManager.getInstance().getCurrentUser() != null) {
+                        String reporterId = SessionManager.getInstance().getCurrentUser().getUid();
+                        viewModel.submitReportInternal(reporterId, true);
+                    } else {
+                        Toast.makeText(this, "Session invalid. Please login again.", Toast.LENGTH_SHORT).show();
+                    }
                 })
                 .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
                 .show();

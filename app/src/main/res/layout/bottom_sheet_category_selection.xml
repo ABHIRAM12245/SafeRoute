@@ -1,26 +1,113 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@drawable/bottom_sheet_background">
+    android:padding="24dp">
+
+    <com.google.android.material.bottomsheet.BottomSheetDragHandleView
+        android:id="@+id/dragHandle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
-        android:layout_width="match_parent"
+        android:id="@+id/tvCategoryTitle"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Select Category"
+        android:textColor="?attr/colorOnSurface"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:layout_marginBottom="16dp"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"/>
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/dragHandle" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvCategories"
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/cgCategories"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:nestedScrollingEnabled="true"
-        android:overScrollMode="never" />
+        android:layout_marginTop="16dp"
+        app:singleSelection="true"
+        app:selectionRequired="false"
+        app:layout_constraintTop_toBottomOf="@id/tvCategoryTitle">
 
-</LinearLayout>
+        <com.google.android.material.chip.Chip
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:tag="POLICE_CHECKING"
+            android:text="@string/police_checking"
+            app:chipIcon="@drawable/ic_police"
+            app:chipIconSize="24dp"
+            app:chipIconTint="?attr/colorPrimary"
+            app:chipIconVisible="true" />
+
+        <com.google.android.material.chip.Chip
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:tag="ACCIDENT"
+            android:text="@string/accident"
+            app:chipIcon="@drawable/ic_accident"
+            app:chipIconSize="24dp"
+            app:chipIconTint="?attr/colorPrimary"
+            app:chipIconVisible="true" />
+
+        <com.google.android.material.chip.Chip
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:tag="HEAVY_TRAFFIC"
+            android:text="@string/heavy_traffic"
+            app:chipIcon="@drawable/ic_traffic"
+            app:chipIconSize="24dp"
+            app:chipIconTint="?attr/colorPrimary"
+            app:chipIconVisible="true" />
+
+        <com.google.android.material.chip.Chip
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:tag="ROAD_CONSTRUCTION"
+            android:text="@string/road_construction"
+            app:chipIcon="@drawable/ic_construction"
+            app:chipIconSize="24dp"
+            app:chipIconTint="?attr/colorPrimary"
+            app:chipIconVisible="true" />
+
+        <com.google.android.material.chip.Chip
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:tag="ANIMAL_ON_ROAD"
+            android:text="@string/animal_on_road"
+            app:chipIcon="@drawable/ic_animal"
+            app:chipIconSize="24dp"
+            app:chipIconTint="?attr/colorPrimary"
+            app:chipIconVisible="true" />
+
+        <com.google.android.material.chip.Chip
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:tag="WATER_LOGGING"
+            android:text="@string/water_logging"
+            app:chipIcon="@drawable/ic_water_logging"
+            app:chipIconSize="24dp"
+            app:chipIconTint="?attr/colorPrimary"
+            app:chipIconVisible="true" />
+
+        <com.google.android.material.chip.Chip
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:tag="OTHER"
+            android:text="@string/other"
+            app:chipIcon="@drawable/ic_other"
+            app:chipIconSize="24dp"
+            app:chipIconTint="?attr/colorPrimary"
+            app:chipIconVisible="true" />
+
+    </com.google.android.material.chip.ChipGroup>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
