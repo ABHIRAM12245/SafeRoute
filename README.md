@@ -151,11 +151,11 @@ cd RouteGuardApp
 
 | Home Map & Travel Mode | Report Creation | Report Details & Voting |
 | :---: | :---: | :---: |
-| ![Home](docs/screenshots/home.png) | ![Report](docs/screenshots/report.png) | ![Details](docs/screenshots/details.png) |
+| ![Home](docs/screenshots/home.jpeg) | ![Report](docs/screenshots/report.jpeg) | ![Details](docs/screenshots/details.jpeg) |
 
 | Notifications Center | User Profile & Trust | My Reports |
 | :---: | :---: | :---: |
-| ![Notifications](docs/screenshots/notifications.png) | ![Profile](docs/screenshots/profile.png) | ![My Reports](docs/screenshots/my_reports.png) |
+| ![Notifications](docs/screenshots/notifications.jpeg) | ![Profile](docs/screenshots/profile.jpeg) | ![My Reports](docs/screenshots/my_reports.jpeg) |
 
 ---
 
