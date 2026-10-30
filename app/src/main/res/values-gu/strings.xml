@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">RouteGuard</string>
+    <string name="app_name">SafeRoute</string>
     <string name="tag_line">જતાં પહેલાં જાણો</string>
     <string name="notifications_desc">સૂચનાઓ</string>
     <string name="guest_profile_desc">મહેમાન પ્રોફાઇલ</string>

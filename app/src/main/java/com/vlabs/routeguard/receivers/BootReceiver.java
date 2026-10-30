@@ -7,6 +7,18 @@ import android.util.Log;
 
 import com.vlabs.routeguard.managers.TravelModeManager;
 
+/**
+ * System Boot Broadcast Receiver.
+ *
+ * Listens for the {@link Intent#ACTION_BOOT_COMPLETED} system broadcast after the Android device restarts.
+ *
+ * Responsibility & Flow:
+ * - Registered in {@code AndroidManifest.xml} with permission {@code RECEIVE_BOOT_COMPLETED}.
+ * - Invokes {@link TravelModeManager#handleDeviceReboot(Context)} upon device startup.
+ * - If Travel Mode was active prior to reboot and its 3-hour expiry has not elapsed,
+ *   reschedules the {@link com.vlabs.routeguard.workers.TravelModeWorker} periodic background job;
+ *   otherwise, purges stale Travel Mode preferences.
+ */
 public class BootReceiver extends BroadcastReceiver {
 
     private static final String TAG = "BootReceiver";

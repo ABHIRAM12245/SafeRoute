@@ -8,11 +8,26 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * Geocoding and Place Search Repository.
+ *
+ * Coordinates network requests to the OpenStreetMap Nominatim forward geocoding service,
+ * supporting search-as-you-type autocomplete with active call cancellation to prevent race conditions.
+ *
+ * Data Flow & Architecture:
+ * - Instantiates the {@link NominatimService} via {@link RetrofitClient}.
+ * - Called by {@link com.vlabs.routeguard.viewmodels.HomeViewModel#searchPlaces(String)}.
+ * - Automatically cancels any ongoing in-flight HTTP request prior to dispatching a new query,
+ *   conserving bandwidth and guaranteeing that stale responses do not overwrite newer suggestions.
+ */
 public class SearchRepository extends BaseRepository {
 
     private final NominatimService nominatimService;
     private Call<List<PlaceSuggestion>> currentCall;
 
+    /**
+     * Callback interface delivering search suggestions or error messages to the ViewModel.
+     */
     public interface SearchCallback {
         void onSuccess(List<PlaceSuggestion> results);
         void onError(String error);

@@ -18,8 +18,31 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Hazard Marker Overlay Lifecycle and Render Manager.
+ *
+ * Coordinates the visualization, lifecycle evaluation, filtering, and click dispatching
+ * of road hazard markers rendered on the OpenStreetMap canvas.
+ *
+ * Key Capabilities & Algorithms:
+ * 1. Automatic 30-Second Refresh Loop:
+ *    - Periodically runs {@link #applyUpdates()} via a Handler runnable on the main Looper to prune
+ *      expired reports in real time without waiting for external network updates.
+ * 2. Multi-Stage Pipeline Filtering:
+ *    - Expiration Check: Compares {@code report.getExpiresAt()} against {@link System#currentTimeMillis()}.
+ *    - Radius Check: Computes Haversine distance from the user's current GPS fix to the hazard coordinates
+ *      using {@link com.vlabs.routeguard.utils.LocationUtils#calculateDistanceKm(double, double, double, double)}.
+ *    - Category Filtering: Verifies that the report's type exists in {@code currentFilters}.
+ * 3. Confidence & Custom Icon Styling:
+ *    - Uses {@link MarkerFactory} to produce category-specific vector icons tinted by trust/confidence levels.
+ * 4. Interaction Dispatch:
+ *    - Intercepts marker touch events and notifies {@link OnReportClickListener} with the associated report IDs.
+ */
 public class MarkerManager {
 
+    /**
+     * Callback interface triggered when a user taps a hazard marker on the map.
+     */
     public interface OnReportClickListener {
         void onReportClick(java.util.List<String> reportIds);
     }

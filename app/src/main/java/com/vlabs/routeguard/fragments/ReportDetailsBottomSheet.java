@@ -45,6 +45,31 @@ import com.vlabs.routeguard.models.Comment;
 import com.vlabs.routeguard.adapters.CommentAdapter;
 import android.location.Location;
 
+/**
+ * Road Hazard Details Bottom Sheet Dialog.
+ *
+ * Displays full metadata, media attachments, real-time community verification metrics,
+ * and discussion threads for a selected road hazard report.
+ *
+ * Architectural & Community Interactions:
+ * 1. Report Hydration & Cluster Navigation:
+ *    - Loads report data by ID via {@link ReportRepository#getReport(String, ReportRepository.ReportCallback)}.
+ *    - If multiple co-located reports were grouped under a cluster marker, enables pagination controls
+ *      (Previous / Next) to cycle through all reports in the group.
+ * 2. Community Voting Subsystem:
+ *    - Interfaces with {@link VotingManager} to fetch aggregated upvotes/downvotes and observe the active
+ *      user's vote record at {@code reports/{reportId}/votes/{userId}}.
+ *    - Enforces anti-abuse rules via {@link com.vlabs.routeguard.managers.VoteBehaviorAnalyzer}.
+ * 3. Existence Confirmations:
+ *    - Coordinates with {@link ConfirmationManager} to record "Still Exists" (+confirm) or "Cleared / Not Found" (-confirm)
+ *      validations at {@code reports/{reportId}/confirmations/{userId}}.
+ * 4. Dynamic Trust & Reliability Scoring:
+ *    - Evaluates community signals using {@link com.vlabs.routeguard.managers.ConfidenceEngine} to determine
+ *      the live reliability tier (Confirmed, High, Moderate, Low, Unreliable).
+ * 5. Interactive Discussion Thread:
+ *    - Real-time comment submission and rendering backed by {@link com.vlabs.routeguard.repositories.CommentRepository}
+ *      and {@link CommentAdapter} under {@code reports/{reportId}/comments}.
+ */
 public class ReportDetailsBottomSheet extends BottomSheetDialogFragment {
 
     private static final String ARG_REPORT_IDS = "arg_report_ids";

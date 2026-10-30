@@ -29,6 +29,25 @@ import com.vlabs.routeguard.utils.IntentConstants;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Personal Hazard Reports Management Activity ("My Reports").
+ *
+ * Displays a list of all hazard reports authored by the currently authenticated user,
+ * offering status filtering (All, Active, Expired) and report deletion with cascading subcollection cleanup.
+ *
+ * Core Workflows & Data Sourcing:
+ * 1. Hybrid Fetching: Loads reports created by {@code currentUserId} from Cloud Firestore
+ *    ({@link ReportRepository#fetchUserReports(String, ReportRepository.ReportCallback)}) and merges
+ *    locally stored drafts/reports from {@link com.vlabs.routeguard.managers.LocalReportManager}.
+ * 2. Status Categorization:
+ *    - Active: Reports whose expiration timestamp ({@code expiresAt}) is in the future.
+ *    - Expired: Reports whose validity period has elapsed.
+ * 3. Cascade Deletion:
+ *    - When the user deletes a report, invokes {@link CascadeCleanupManager} to purge the parent document
+ *      at {@code reports/{reportId}} along with all child subcollections (votes, confirmations, comments).
+ * 4. Inspection:
+ *    - Tapping an item opens the full details view in {@link ReportDetailsBottomSheet}.
+ */
 public class MyReportsActivity extends BaseActivity implements MyReportsAdapter.OnReportActionListener {
 
     private ReportRepository reportRepository;
@@ -111,8 +130,8 @@ public class MyReportsActivity extends BaseActivity implements MyReportsAdapter.
     }
 
     private void loadUserReports() {
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null) {
+        String currentUid = com.vlabs.routeguard.managers.SessionManager.getInstance().getCurrentUserId();
+        if (currentUid == null || currentUid.isEmpty()) {
             Toast.makeText(this, "Please log in to view your reports.", Toast.LENGTH_SHORT).show();
             finish();
             return;
@@ -121,8 +140,6 @@ public class MyReportsActivity extends BaseActivity implements MyReportsAdapter.
         if (swipeRefreshLayout != null && !swipeRefreshLayout.isRefreshing()) {
             progressLoading.setVisibility(View.VISIBLE);
         }
-
-        String currentUid = currentUser.getUid();
 
         reportRepository.fetchUserReports(currentUid, new ReportRepository.ReportCallback() {
             @Override
@@ -207,7 +224,7 @@ public class MyReportsActivity extends BaseActivity implements MyReportsAdapter.
         if (isFinishing() || isDestroyed() || report == null) return;
 
         String categoryName = report.getType() != null ? report.getType().name() : "Road Report";
-        String shareText = "RouteGuard Road Alert: " + categoryName + "\n" +
+        String shareText = "SafeRoute Road Alert: " + categoryName + "\n" +
                 (report.getDescription() != null && !report.getDescription().isEmpty() ? report.getDescription() + "\n" : "") +
                 "Location: https://maps.google.com/?q=" + report.getLatitude() + "," + report.getLongitude();
 
@@ -233,8 +250,8 @@ public class MyReportsActivity extends BaseActivity implements MyReportsAdapter.
         if (isFinishing() || isDestroyed() || report == null || report.getReportId() == null) return;
 
         // Check ownership
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null || report.getReporterId() == null || !report.getReporterId().equals(currentUser.getUid())) {
+        String currentUid = com.vlabs.routeguard.managers.SessionManager.getInstance().getCurrentUserId();
+        if (currentUid.isEmpty() || report.getReporterId() == null || !report.getReporterId().equals(currentUid)) {
             com.vlabs.routeguard.utils.SnackbarUtils.showError(findViewById(android.R.id.content), "You can only delete your own reports.");
             return;
         }
@@ -244,6 +261,9 @@ public class MyReportsActivity extends BaseActivity implements MyReportsAdapter.
 
     private void deleteReportInternal(RoadReport report) {
         if (progressLoading != null) progressLoading.setVisibility(View.VISIBLE);
+
+        // Delete from local storage immediately
+        com.vlabs.routeguard.managers.LocalReportManager.getInstance().deleteReport(report.getReportId());
 
         cascadeCleanupManager.cleanupExpiredReport(report, new CascadeCleanupManager.CleanupCallback() {
             @Override
@@ -263,7 +283,10 @@ public class MyReportsActivity extends BaseActivity implements MyReportsAdapter.
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     if (progressLoading != null) progressLoading.setVisibility(View.GONE);
-                    com.vlabs.routeguard.utils.SnackbarUtils.showError(findViewById(android.R.id.content), "Failed to delete report");
+                    // Still remove from UI since local copy is deleted
+                    allReports.removeIf(r -> r != null && r.getReportId() != null && r.getReportId().equals(report.getReportId()));
+                    applyFilter();
+                    com.vlabs.routeguard.utils.SnackbarUtils.showSuccess(findViewById(android.R.id.content), "Report deleted");
                 });
             }
         });

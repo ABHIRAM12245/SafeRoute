@@ -22,6 +22,21 @@ import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.BitmapDrawable;
 
+/**
+ * OpenStreetMap (OSMDroid) Controller and Manager.
+ *
+ * Encapsulates all direct interactions with the OSMDroid {@link MapView}, including
+ * tile source configuration, camera animations, gesture controls, location overlays,
+ * and delegation of hazard report markers to {@link MarkerManager}.
+ *
+ * Core Capabilities:
+ * - Tile Provider: Configures {@link TileSourceFactory#MAPNIK} with DPI tile scaling and multi-touch gestures.
+ * - Camera Navigation: Provides {@link #setCenter(GeoPoint)}, {@link #animateTo(GeoPoint, double, long)}, and {@link #setZoom(double)}.
+ * - Current Location Overlay: Manages a {@link MyLocationNewOverlay} with a custom {@link IMyLocationProvider}
+ *   displaying the user's live position and accuracy circle.
+ * - Hazard Markers & Radius: Forwards reports and radius circle overlays to {@link MarkerManager}.
+ * - Map Events: Attaches a {@link MapEventsOverlay} to capture long-press coordinates for direct report creation.
+ */
 public class MapManager {
 
     private final MapView mapView;

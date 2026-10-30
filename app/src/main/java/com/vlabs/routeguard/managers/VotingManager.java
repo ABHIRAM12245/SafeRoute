@@ -6,7 +6,16 @@ import com.vlabs.routeguard.models.VoteCount;
 import com.vlabs.routeguard.repositories.VoteRepository;
 
 /**
- * Foundation architecture for report voting functionality.
+ * Community Voting Subsystem Manager.
+ *
+ * Coordinates upvoting and downvoting on road hazard reports, managing vote records,
+ * real-time vote listeners, and score aggregation across Cloud Firestore.
+ *
+ * Architecture & Collection Hierarchy:
+ * - Subcollection Path: {@code reports/{reportId}/votes/{userId}}
+ * - Vote Entity: {@link ReportVote} storing voteId, reportId, userId, voteType (UPVOTE/DOWNVOTE), timestamp, reportOwnerId.
+ * - Score Aggregation: {@link VoteCount} tallies total upvotes, downvotes, and net confidence score.
+ * - Anti-Abuse: Works in tandem with {@link VoteBehaviorAnalyzer} to detect rapid vote manipulation.
  */
 public class VotingManager {
 

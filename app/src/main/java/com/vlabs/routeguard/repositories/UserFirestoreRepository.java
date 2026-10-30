@@ -3,14 +3,23 @@ package com.vlabs.routeguard.repositories;
 import com.vlabs.routeguard.models.User;
 
 /**
- * Dedicated Firestore repository responsible for all user profile operations.
+ * Cloud Firestore User Profile Repository.
  *
- * Future implementation:
- * - users/{userId}
- * - saveUser()
- * - getUser()
- * - updateLastActive()
- * - updateProfile()
+ * Encapsulates all database operations targeting the Firestore {@code users} collection:
+ * {@code users/{userId}}.
+ *
+ * Core Responsibilities & Data Flow:
+ * - Profile Provisioning: {@link #ensureUserProfile(com.google.firebase.auth.FirebaseUser, SaveUserCallback)}
+ *   checks if {@code users/{userId}} exists upon login; if missing, creates a default profile with initial
+ *   reputation and trust scores (50/100) and server-stamped creation time.
+ * - Profile Persistence: {@link #saveUser(User, SaveUserCallback)} writes or merges profile fields
+ *   (displayName, email, photoUrl, trustScore, reputationScore, isModerator, isBlocked).
+ * - Activity Tracking: {@link #updateLastActive(String, UpdateLastActiveCallback)} updates {@code lastActiveAt}
+ *   using Firestore's atomic {@link com.google.firebase.firestore.FieldValue#serverTimestamp()}.
+ * - Push Notification Routing: {@link #updateFcmToken(String, String)} associates device registration
+ *   tokens with the user document for targeted proximity alerts.
+ * - Profile Hydration: {@link #getUser(String, GetUserCallback)} fetches and maps Firestore document snapshots
+ *   into application-level {@link User} domain objects.
  */
 public class UserFirestoreRepository {
 
@@ -84,9 +93,75 @@ public class UserFirestoreRepository {
             return;
         }
 
+        java.util.Map<String, Object> updateData = new java.util.HashMap<>();
+        updateData.put("userId", userId);
+        updateData.put("lastActiveAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+
         db.collection("users").document(userId)
-                .update("lastActiveAt", com.google.firebase.firestore.FieldValue.serverTimestamp())
+                .set(updateData, com.google.firebase.firestore.SetOptions.merge())
                 .addOnSuccessListener(aVoid -> callback.onSuccess())
+                .addOnFailureListener(callback::onFailure);
+    }
+
+    /**
+     * Ensures that a user profile document exists for the given FirebaseUser.
+     * If the profile already exists, updates lastActiveAt.
+     * If it does not exist, safely creates it with valid initial values.
+     *
+     * @param firebaseUser The currently authenticated Firebase user.
+     * @param callback     Callback for completion.
+     */
+    public void ensureUserProfile(com.google.firebase.auth.FirebaseUser firebaseUser, SaveUserCallback callback) {
+        if (callback == null) return;
+        if (firebaseUser == null || firebaseUser.getUid() == null || firebaseUser.getUid().trim().isEmpty()) {
+            callback.onFailure(new IllegalArgumentException("FirebaseUser cannot be null or have an empty UID"));
+            return;
+        }
+
+        String userId = firebaseUser.getUid();
+        db.collection("users").document(userId).get()
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot.exists()) {
+                        // User profile exists, simply update lastActiveAt
+                        updateLastActive(userId, new UpdateLastActiveCallback() {
+                            @Override
+                            public void onSuccess() {
+                                callback.onSuccess();
+                            }
+
+                            @Override
+                            public void onFailure(Exception e) {
+                                callback.onFailure(e);
+                            }
+                        });
+                    } else {
+                        // Profile missing, create a default profile safely
+                        String email = firebaseUser.getEmail();
+                        String displayName = firebaseUser.getDisplayName();
+                        if (displayName == null || displayName.trim().isEmpty()) {
+                            if (email != null && email.contains("@")) {
+                                displayName = email.split("@")[0];
+                            } else {
+                                displayName = "User";
+                            }
+                        }
+
+                        User newUser = new User(
+                                userId,
+                                displayName,
+                                email,
+                                firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : null,
+                                0, // Handled by FieldValue.serverTimestamp() in saveUser
+                                0,
+                                50, // default trustScore
+                                50, // default reputationScore
+                                false, // isModerator
+                                false // isBlocked
+                        );
+
+                        saveUser(newUser, callback);
+                    }
+                })
                 .addOnFailureListener(callback::onFailure);
     }
 
@@ -101,8 +176,12 @@ public class UserFirestoreRepository {
             return;
         }
 
+        java.util.Map<String, Object> updateData = new java.util.HashMap<>();
+        updateData.put("userId", userId);
+        updateData.put("fcmToken", token);
+
         db.collection("users").document(userId)
-                .update("fcmToken", token)
+                .set(updateData, com.google.firebase.firestore.SetOptions.merge())
                 .addOnFailureListener(e -> android.util.Log.e("UserFirestoreRepo", "Failed to update FCM token", e));
     }
 

@@ -14,7 +14,7 @@
         android:layout_height="120dp"
         android:layout_marginBottom="16dp"
         android:contentDescription="@string/app_name"
-        android:src="@drawable/routeguard_logo" />
+        android:src="@drawable/saferoute_logo" />
 
     <TextView
         android:id="@+id/appNameTextView"

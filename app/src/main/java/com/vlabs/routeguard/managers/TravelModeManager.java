@@ -30,6 +30,30 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Travel Mode Proximity Alert Subsystem Manager.
+ *
+ * Coordinates the automated 3-hour proximity hazard monitoring engine that alerts commuters
+ * to nearby road dangers in both the foreground and background.
+ *
+ * Key Architectural Components & Rules:
+ * 1. 3-Hour Hard Expiration Window:
+ *    - Automatically sets {@link #TRAVEL_MODE_DURATION_MS} (3 hours) upon activation.
+ *    - When the current epoch exceeds the expiration timestamp, {@link #isTravelModeActive(Context)}
+ *      automatically shuts off travel mode and cancels background workers.
+ * 2. Background Scheduling via AndroidX WorkManager:
+ *    - Enqueues a 15-minute {@link PeriodicWorkRequest} with {@link ExistingPeriodicWorkPolicy#UPDATE}
+ *      targeting {@link TravelModeWorker}.
+ * 3. Proximity & Deduplication Engine:
+ *    - {@link #evaluateAndNotifyReports(Context, double, double, List, String)} evaluates real-time GPS
+ *      coordinates against active reports using the Haversine formula ({@link LocationUtils}).
+ *    - Maintains a LRU cache of {@link #PREF_NOTIFIED_IDS} (max 100 entries) to prevent alerting the user
+ *      repeatedly for the same hazard.
+ * 4. Reboot & Lifecycle Hooks:
+ *    - {@link #handleDeviceReboot(Context)}: Triggered by {@link com.vlabs.routeguard.receivers.BootReceiver}
+ *      to reschedule background monitoring if the 3-hour window has not elapsed.
+ *    - {@link #stopTravelModeOnLogout(Context)}: Tears down all scheduled workers and clears caches upon logout.
+ */
 public class TravelModeManager {
 
     private static final String TAG = "TravelModeManager";
@@ -160,6 +184,11 @@ public class TravelModeManager {
             return;
         }
 
+        com.vlabs.routeguard.utils.AppPreferences appPrefs = new com.vlabs.routeguard.utils.AppPreferences(context);
+        if (!appPrefs.isNotificationsEnabled() || !appPrefs.isHazardAlertsEnabled()) {
+            return;
+        }
+
         FilterPreferences filterPrefs = new FilterPreferences(context);
         Set<String> selectedCategories = filterPrefs.loadFilters(); // Default: All Categories (Refinement #7)
         float radiusKm = filterPrefs.getNotificationRadiusKm();
@@ -246,12 +275,18 @@ public class TravelModeManager {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        com.vlabs.routeguard.utils.AppPreferences appPrefs = new com.vlabs.routeguard.utils.AppPreferences(context);
+        int defaults = 0;
+        if (appPrefs.isSoundEnabled()) defaults |= NotificationCompat.DEFAULT_SOUND;
+        if (appPrefs.isVibrationEnabled()) defaults |= NotificationCompat.DEFAULT_VIBRATE;
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notifications)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
+                .setDefaults(defaults)
                 .setContentIntent(pendingIntent);
 
         // 1. Save NotificationModel into Firestore first if user is logged in

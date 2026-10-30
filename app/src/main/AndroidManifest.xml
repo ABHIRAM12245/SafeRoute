@@ -34,6 +34,7 @@
         <activity
             android:name=".activities.SplashActivity"
             android:exported="true"
+            android:clearTaskOnLaunch="true"
             android:theme="@style/Theme.RouteGuard">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -54,6 +55,10 @@
             android:theme="@style/Theme.RouteGuard" />
         <activity
             android:name=".settings.SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.RouteGuard" />
+        <activity
+            android:name=".settings.NotificationSettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.RouteGuard" />
         <activity

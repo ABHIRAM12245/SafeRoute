@@ -84,6 +84,34 @@ public class UserRepository {
     }
 
     /**
+     * Ensures that a user profile document exists for the given FirebaseUser.
+     * If the profile exists, updates lastActiveAt; if missing, creates it safely.
+     *
+     * @param firebaseUser The currently authenticated Firebase user.
+     * @param callback     Callback for success/failure.
+     */
+    public void ensureUserProfile(com.google.firebase.auth.FirebaseUser firebaseUser, SaveUserCallback callback) {
+        if (callback == null) return;
+
+        if (firebaseUser == null || firebaseUser.getUid() == null || firebaseUser.getUid().trim().isEmpty()) {
+            callback.onFailure(new IllegalArgumentException("FirebaseUser cannot be null or have an empty UID"));
+            return;
+        }
+
+        userFirestoreRepository.ensureUserProfile(firebaseUser, new UserFirestoreRepository.SaveUserCallback() {
+            @Override
+            public void onSuccess() {
+                callback.onSuccess();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                callback.onFailure(e);
+            }
+        });
+    }
+
+    /**
      * Orchestrates retrieving a user profile.
      *
      * @param userId   The ID of the user to retrieve.

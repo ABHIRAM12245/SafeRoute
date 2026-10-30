@@ -2,6 +2,25 @@ package com.vlabs.routeguard.managers;
 
 import com.vlabs.routeguard.models.RoadReport;
 
+/**
+ * Road Hazard Reliability and Confidence Scoring Engine.
+ *
+ * Computes a dynamic composite reliability score (0-100) and confidence tier for road reports
+ * by evaluating community signals, peer confirmations, and temporal decay.
+ *
+ * Scoring Algorithm & Weights:
+ * - Baseline: 50 points.
+ * - Upvotes & Downvotes: +5 points per upvote; -5 points per downvote.
+ * - Peer Confirmations: +15 points per active ("Still Exists") confirmation; -15 points per gone ("Cleared") confirmation.
+ * - Age Decay: -1 point per elapsed hour since creation.
+ * - Expiry Decay: -5 points if remaining lifetime is under 30 minutes.
+ * - Range Clamping: Bound within [0, 100].
+ *
+ * Confidence Tiers:
+ * - HIGH: score >= 70
+ * - MEDIUM: 20 <= score < 70
+ * - LOW: score < 20
+ */
 public class ConfidenceEngine {
 
     public enum ConfidenceLevel {

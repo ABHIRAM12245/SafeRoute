@@ -6,6 +6,19 @@ import com.vlabs.routeguard.repositories.ConfirmationRepository;
 
 import java.util.List;
 
+/**
+ * Community Hazard Existence Confirmation Manager.
+ *
+ * Coordinates peer validations certifying whether a reported hazard is still present
+ * ({@link ReportConfirmation.Status#ACTIVE}) or has been cleared ({@link ReportConfirmation.Status#GONE}).
+ *
+ * Database Architecture & Anti-Abuse Rules:
+ * - Subcollection Path: {@code reports/{reportId}/confirmations/{userId}}
+ * - Rate Limiting: Enforces a 5-minute cooldown between confirmation changes to prevent spam toggling.
+ * - Same Status Rejection: Rejects duplicate attempts to reaffirm the already selected status.
+ * - Metric Aggregation: {@link #calculateConfirmationCount(List)} tallies active vs gone counts
+ *   and captures the most recent confirmation timestamp for trust scoring in {@link ConfidenceEngine}.
+ */
 public class ConfirmationManager {
 
     private final ConfirmationRepository confirmationRepository;

@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RouteGuard"
+rootProject.name = "SafeRoute"
 include(":app")
  

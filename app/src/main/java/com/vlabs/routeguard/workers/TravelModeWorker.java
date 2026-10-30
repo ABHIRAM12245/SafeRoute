@@ -21,6 +21,27 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Travel Mode Periodic WorkManager Worker.
+ *
+ * Executes periodic background proximity checks for users who have engaged Travel Mode.
+ *
+ * Execution Flow & Threading:
+ * 1. Active State Verification:
+ *    - Verifies via {@link TravelModeManager#isTravelModeActive(Context)} that the 3-hour window has not elapsed.
+ *      If expired, cancels background execution immediately.
+ * 2. Background Location Fix:
+ *    - Uses {@link UserLocationManager#checkAndFetchLocation(UserLocationManager.LocationCallback)}
+ *      to query the device's last known or high-accuracy GPS coordinates.
+ * 3. Asynchronous Synchronization (CountDownLatch):
+ *    - Because WorkManager's {@link #doWork()} executes synchronously on a worker thread while location
+ *      and Firestore queries are asynchronous, uses a {@link CountDownLatch} (15-second timeout) to hold
+ *      the worker thread until reports are processed.
+ * 4. Business Logic Delegation:
+ *    - Fetches active road reports from {@link ReportRepository#fetchRoadReports(ReportRepository.ReportCallback)}
+ *      and delegates proximity evaluation, deduplication, and notification dispatch to
+ *      {@link TravelModeManager#evaluateAndNotifyReports(Context, double, double, List, String)}.
+ */
 public class TravelModeWorker extends Worker {
 
     private static final String TAG = "TravelModeWorker";

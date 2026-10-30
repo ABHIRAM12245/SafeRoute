@@ -233,10 +233,37 @@
                         android:id="@+id/btnAbout"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="About"
+                        android:text="About SafeRoute"
                         android:padding="16dp"
                         android:background="?attr/selectableItemBackground"
                         android:textAppearance="?attr/textAppearanceBodyLarge"/>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#E0E0E0"
+                        android:layout_marginHorizontal="16dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="16dp"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="App Version"
+                            android:textAppearance="?attr/textAppearanceBodyLarge"/>
+                        <TextView
+                            android:id="@+id/tvSettingsAppVersion"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="v1.0"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"/>
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

@@ -28,6 +28,26 @@ import com.vlabs.routeguard.utils.SnackbarUtils;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * In-App Notification Center Activity.
+ *
+ * Provides a categorized, chronological feed of community hazard warnings, upvote alerts,
+ * and discussion comments delivered to the active user.
+ *
+ * Core Features & Execution Flow:
+ * 1. Chronological Date Bucketing:
+ *    - Partitions notifications retrieved from Cloud Firestore into three distinct chronological groups:
+ *      Today (within 24 hours), Yesterday (24-48 hours), and Older (>48 hours), managed by separate adapters.
+ * 2. Real-Time Interaction:
+ *    - Tapping a notification invokes {@link #onNotificationClick(NotificationModel)}, which updates its read state
+ *      via {@link NotificationRepository#markAsRead(String, NotificationRepository.NotificationActionCallback)}.
+ *    - If the notification links to a valid {@code reportId}, loads the corresponding hazard report and
+ *      presents it inside a {@link ReportDetailsBottomSheet}.
+ * 3. Bulk Management:
+ *    - Supports "Mark All as Read" batch updates across all active notification documents.
+ * 4. Swipe-to-Refresh:
+ *    - Pull-to-refresh integration via {@link SwipeRefreshLayout} querying {@code notifications/{notificationId}}.
+ */
 public class NotificationActivity extends BaseActivity implements NotificationAdapter.OnNotificationClickListener {
 
     private NotificationRepository notificationRepository;

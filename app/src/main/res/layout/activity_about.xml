@@ -60,14 +60,14 @@
                     android:contentDescription="App Logo"
                     android:padding="16dp"
                     android:scaleType="fitCenter"
-                    android:src="@drawable/routeguard_logo" />
+                    android:src="@drawable/saferoute_logo" />
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:id="@+id/tvAppName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="RouteGuard"
+                android:text="SafeRoute"
                 android:textColor="@color/rg_on_surface"
                 android:textSize="26sp"
                 android:textStyle="bold" />
@@ -224,100 +224,6 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Developer Profile Card -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardBackgroundColor="@color/rg_surface"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="2dp"
-                app:strokeColor="@color/rg_outline_variant"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="👨‍💻 Developer"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="@color/rg_on_surface"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvDevelopedBy"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Vishwarajsinh Chudasama"
-                        android:textColor="@color/rg_primary"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:layout_marginBottom="12dp"
-                        android:text="MCA Student • Software Developer"
-                        android:textColor="@color/rg_on_surface_variant"
-                        android:textSize="13sp" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnGithub"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginEnd="4dp"
-                            android:layout_weight="1"
-                            android:minHeight="38dp"
-                            android:paddingHorizontal="4dp"
-                            android:text="GitHub"
-                            android:textSize="12sp"
-                            app:cornerRadius="12dp"
-                            app:strokeColor="@color/rg_outline" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnLinkedin"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginHorizontal="2dp"
-                            android:layout_weight="1"
-                            android:minHeight="38dp"
-                            android:paddingHorizontal="4dp"
-                            android:text="LinkedIn"
-                            android:textSize="12sp"
-                            app:cornerRadius="12dp"
-                            app:strokeColor="@color/rg_outline" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPortfolio"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="4dp"
-                            android:layout_weight="1"
-                            android:minHeight="38dp"
-                            android:paddingHorizontal="4dp"
-                            android:text="Portfolio"
-                            android:textSize="12sp"
-                            app:cornerRadius="12dp"
-                            app:strokeColor="@color/rg_outline" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
             <!-- Built With Section -->
             <TextView
                 android:layout_width="wrap_content"
@@ -401,24 +307,6 @@
                     android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/btnPrivacy"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:padding="16dp"
-                        android:text="🔒 Privacy Policy"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="@color/rg_on_surface"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginHorizontal="16dp"
-                        android:background="@color/rg_outline_variant" />
-
-                    <TextView
                         android:id="@+id/btnTerms"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -450,11 +338,21 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Tagline & Footer -->
+            <!-- Attribution & Footer -->
+            <TextView
+                android:id="@+id/tvOsmAttribution"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Map data © OpenStreetMap contributors"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="@color/rg_on_surface_variant"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="RouteGuard • Safer Roads Together"
+                android:text="SafeRoute • Safer Roads Together"
                 android:textAppearance="?attr/textAppearanceLabelMedium"
                 android:textColor="@color/rg_primary"
                 android:textStyle="bold" />
@@ -464,20 +362,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="© 2026 RouteGuard"
+                android:text="© 2026 SafeRoute"
                 android:textAppearance="?attr/textAppearanceBodySmall"
                 android:textColor="@color/rg_on_surface_variant"
                 android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tvMadeWithLove"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Made with ❤️ in India"
-                android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:textColor="@color/rg_on_surface_variant"
-                android:textSize="13sp" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

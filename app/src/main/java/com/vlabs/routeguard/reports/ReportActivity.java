@@ -34,6 +34,32 @@ import java.io.IOException;
 
 import org.osmdroid.util.GeoPoint;
 
+/**
+ * Hazard Report Creation and Submission Activity.
+ *
+ * Provides the user interface for drafting and submitting a new road hazard report.
+ *
+ * End-to-End Workflow:
+ * 1. Authentication Check:
+ *    - Verifies an active session via {@link SessionManager#isLoggedIn()}. Rejects unauthenticated access.
+ * 2. Parameter Extraction:
+ *    - Extracts latitude, longitude, and hazard category from incoming Intent extras ({@link IntentConstants}).
+ * 3. Media Capture & Management:
+ *    - Integrates camera photography using {@link CameraCaptureManager} and AndroidX {@link ActivityResultContracts.TakePicture}
+ *      backed by an internal {@link androidx.core.content.FileProvider} URI.
+ *    - Provides a full-screen image preview, retake option, and photo deletion.
+ * 4. Input & Validation:
+ *    - Captures category confirmation and optional detailed description text.
+ *    - Verifies network availability via {@link NetworkUtils#isNetworkAvailable(android.content.Context)}.
+ * 5. Asynchronous Submission Pipeline:
+ *    - Disables submit controls synchronously to prevent duplicate double-taps.
+ *    - Passes payload to {@link ReportCreationViewModel#submitReport(String)}, which compresses photos
+ *      via {@link com.vlabs.routeguard.managers.PhotoCompressionManager}, uploads to Cloudinary via
+ *      {@link com.vlabs.routeguard.repositories.StorageRepository}, performs duplicate detection, and
+ *      writes the final {@link com.vlabs.routeguard.models.RoadReport} document to Cloud Firestore.
+ * 6. State Observation:
+ *    - Reacts to {@link SubmissionState} (Idle, Loading, UploadingImage, DuplicateFound, Success, Error).
+ */
 public class ReportActivity extends BaseActivity {
 
     private ActivityReportBinding binding;
@@ -123,8 +149,8 @@ public class ReportActivity extends BaseActivity {
             viewModel.setDescription(binding.etDescription.getText().toString());
             binding.btnSubmit.setEnabled(false); // Synchronously prevent rapid duplicate clicks
             
-            if (SessionManager.getInstance().getCurrentUser() != null) {
-                String reporterId = SessionManager.getInstance().getCurrentUser().getUid();
+            String reporterId = SessionManager.getInstance().getCurrentUserId();
+            if (reporterId != null && !reporterId.isEmpty()) {
                 viewModel.submitReport(reporterId);
             } else {
                 binding.btnSubmit.setEnabled(true);
@@ -277,7 +303,8 @@ public class ReportActivity extends BaseActivity {
                     binding.btnSubmit.setText("Submitting...");
                     break;
                 case SUCCESS:
-                    finish(); // Simply close, let HomeActivity's listener show marker
+                    Toast.makeText(this, "Report submitted successfully!", Toast.LENGTH_SHORT).show();
+                    finish();
                     break;
                 case ERROR:
                     binding.btnSubmit.setEnabled(true);
@@ -360,8 +387,10 @@ public class ReportActivity extends BaseActivity {
                 })
                 .setNeutralButton("Create Anyway", (dialog, which) -> {
                     if (isFinishing() || isDestroyed()) return;
-                    if (SessionManager.getInstance().getCurrentUser() != null) {
-                        String reporterId = SessionManager.getInstance().getCurrentUser().getUid();
+                    String reporterId = SessionManager.getInstance().getCurrentUserId();
+                    if (reporterId != null && !reporterId.isEmpty()) {
+                        binding.btnSubmit.setEnabled(false);
+                        binding.btnSubmit.setText("Submitting...");
                         viewModel.submitReportInternal(reporterId, true);
                     } else {
                         Toast.makeText(this, "Session invalid. Please login again.", Toast.LENGTH_SHORT).show();

@@ -8,15 +8,15 @@ import com.vlabs.routeguard.utils.BehaviorConfig;
 import java.util.ArrayList;
 
 /**
- * Independent analyzer responsible for evaluating user voting behavior.
- * This analyzer only analyzes voting metrics and returns an independent BehaviorResult.
+ * User Voting Behavior and Anti-Abuse Analyzer.
  *
- * Future detection modules to be implemented:
- * - Mass Downvoting
- * - Mass Upvoting
- * - Vote Farming
- * - High Daily Voting
- * - Vote Ratio Analysis
+ * Evaluates voting statistics to detect malicious patterns such as mass downvoting,
+ * targeted negative campaigns, and vote farming.
+ *
+ * Algorithmic Logic:
+ * - Requires a minimum of {@link BehaviorConfig#MINIMUM_VOTES_FOR_ANALYSIS} votes before flagging.
+ * - Computes the negative vote ratio: {@code negativeVotes / totalVotes}.
+ * - Flags users exhibiting abnormal downvoting velocity with elevated risk scores (NORMAL, LOW_RISK, MEDIUM_RISK, HIGH_RISK).
  */
 public class VoteBehaviorAnalyzer {
 

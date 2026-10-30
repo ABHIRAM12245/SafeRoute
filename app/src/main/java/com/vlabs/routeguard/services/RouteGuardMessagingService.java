@@ -7,6 +7,31 @@ import androidx.annotation.NonNull;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
+/**
+ * Firebase Cloud Messaging (FCM) Push Notification Service.
+ *
+ * Intercepts incoming cloud push messages dispatched to the client device, translates them
+ * into localized notification channel alerts, and syncs notification entities into Cloud Firestore.
+ *
+ * Core Processing Pipeline:
+ * 1. Payload Parsing: Extracts message title, body, reportId, and notification category (HAZARD vs COMMUNITY)
+ *    from both notification payloads and data dictionaries.
+ * 2. In-App Notification Store: Automatically persists a {@link com.vlabs.routeguard.models.NotificationModel}
+ *    record into the Cloud Firestore {@code notifications} collection via {@link com.vlabs.routeguard.repositories.NotificationRepository}
+ *    so it appears in the user's in-app notification activity feed.
+ * 3. User Preference & DND Filtering:
+ *    - Respects master toggle ({@link com.vlabs.routeguard.utils.AppPreferences#isNotificationsEnabled()}).
+ *    - Evaluates sub-toggles for hazard alerts and general community updates.
+ *    - Enforces Do Not Disturb (DND): Silences non-essential community updates while ensuring critical road hazard
+ *      safety alerts are never suppressed.
+ * 4. System Notification Dispatch:
+ *    - Creates or reuses high-importance notification channel "routeguard_alerts".
+ *    - Attaches a {@link android.app.PendingIntent} navigating directly to {@link com.vlabs.routeguard.activities.HomeActivity}
+ *      with the relevant report ID.
+ * 5. Token Rotation:
+ *    - {@link #onNewToken(String)} automatically updates the active device token in {@code users/{userId}} via
+ *      {@link com.vlabs.routeguard.repositories.UserFirestoreRepository#updateFcmToken(String, String)}.
+ */
 public class RouteGuardMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "RouteGuardMessaging";
@@ -37,7 +62,7 @@ public class RouteGuardMessagingService extends FirebaseMessagingService {
         
         // Apply defaults
         if (title == null || title.trim().isEmpty()) {
-            title = "RouteGuard";
+            title = "SafeRoute";
         }
         if (body == null || body.trim().isEmpty()) {
             body = "New community update available.";
@@ -72,14 +97,38 @@ public class RouteGuardMessagingService extends FirebaseMessagingService {
             new com.vlabs.routeguard.repositories.NotificationRepository().saveNotification(notificationModel, null);
         }
 
+        com.vlabs.routeguard.utils.AppPreferences appPrefs = new com.vlabs.routeguard.utils.AppPreferences(this);
+        if (!appPrefs.isNotificationsEnabled()) {
+            return;
+        }
+
+        boolean isHazard = "HAZARD".equalsIgnoreCase(type) || "TRAVEL_ALERT".equalsIgnoreCase(type)
+                || title.toLowerCase().contains("hazard") || body.toLowerCase().contains("hazard");
+
+        if (isHazard && !appPrefs.isHazardAlertsEnabled()) {
+            return;
+        }
+        if (!isHazard && !appPrefs.isCommunityAlertsEnabled()) {
+            return;
+        }
+
+        // Do Not Disturb suppresses non-essential community updates while preserving hazard safety alerts
+        if (appPrefs.isDndEnabled() && !isHazard) {
+            return;
+        }
+
         String channelId = "routeguard_alerts";
         android.app.NotificationManager notificationManager = (android.app.NotificationManager) getSystemService(android.content.Context.NOTIFICATION_SERVICE);
 
         android.app.NotificationChannel channel = notificationManager.getNotificationChannel(channelId);
         if (channel == null) {
-            channel = new android.app.NotificationChannel(channelId, "RouteGuard Alerts", android.app.NotificationManager.IMPORTANCE_HIGH);
+            channel = new android.app.NotificationChannel(channelId, "SafeRoute Alerts", android.app.NotificationManager.IMPORTANCE_HIGH);
             notificationManager.createNotificationChannel(channel);
         }
+
+        int defaults = 0;
+        if (appPrefs.isSoundEnabled()) defaults |= androidx.core.app.NotificationCompat.DEFAULT_SOUND;
+        if (appPrefs.isVibrationEnabled()) defaults |= androidx.core.app.NotificationCompat.DEFAULT_VIBRATE;
 
         androidx.core.app.NotificationCompat.Builder builder = new androidx.core.app.NotificationCompat.Builder(this, channelId)
                 .setSmallIcon(com.vlabs.routeguard.R.mipmap.ic_launcher)
@@ -87,7 +136,7 @@ public class RouteGuardMessagingService extends FirebaseMessagingService {
                 .setContentText(body)
                 .setAutoCancel(true)
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
-                .setDefaults(androidx.core.app.NotificationCompat.DEFAULT_SOUND);
+                .setDefaults(defaults);
 
         if (reportId != null && !reportId.trim().isEmpty()) {
             android.content.Intent intent = new android.content.Intent(this, com.vlabs.routeguard.activities.HomeActivity.class);

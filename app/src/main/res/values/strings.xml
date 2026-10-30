@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">RouteGuard</string>
+    <string name="app_name">SafeRoute</string>
     <string name="tag_line">Know Before You Go</string>
     <string name="notifications_desc">Notifications</string>
     <string name="guest_profile_desc">Guest Profile</string>

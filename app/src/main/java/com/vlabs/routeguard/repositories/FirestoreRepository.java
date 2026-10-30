@@ -16,6 +16,30 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Primary Cloud Firestore Data Access Repository.
+ *
+ * Encapsulates all direct read, query, listener, and deletion operations targeting
+ * the root Firestore {@code reports} collection: {@code reports/{reportId}}.
+ *
+ * Data Architecture & Operational Details:
+ * 1. Offline Persistence:
+ *    - Automatically enables disk persistence via {@link FirebaseFirestoreSettings.Builder#setPersistenceEnabled(boolean)}
+ *      to ensure previously loaded hazard reports remain accessible offline.
+ * 2. Queries & Snapshot Listeners:
+ *    - Batch Query: {@link #fetchReports(ReportRepository.ReportCallback)} retrieves recent hazards
+ *      ordered by {@code timestamp} descending, capped at 50 documents.
+ *    - Real-Time Synchronization: {@link #listenToReports(ReportRepository.ReportCallback)} attaches an active
+ *      snapshot listener to stream additions, edits, and deletions directly into the UI.
+ *    - User Filter Query: {@link #fetchUserReports(String, ReportRepository.ReportCallback)} queries hazards
+ *      where {@code reporterId == userId} for the My Reports screen.
+ * 3. Cascade Cleanup:
+ *    - When a report is deleted via {@link #deleteReport(String, ReportRepository.DeleteReportCallback)},
+ *      invokes {@link CascadeCleanupManager} to recursively remove child subcollections (votes, confirmations, comments).
+ * 4. Document Mapping:
+ *    - Maps Firestore documents into {@link RoadReport} domain models, safely normalizing timestamps,
+ *      coordinates, categories, and photo URLs.
+ */
 public class FirestoreRepository {
 
     private static final String TAG = "RouteGuard";
@@ -255,6 +279,18 @@ public class FirestoreRepository {
             Object imgObj = document.get(FirestoreFields.IMAGE_URL);
             if (imgObj instanceof String) {
                 imageUrl = (String) imgObj;
+            }
+            if (imageUrl == null || imageUrl.trim().isEmpty()) {
+                Object photoObj = document.get("photo");
+                if (photoObj instanceof String) {
+                    imageUrl = (String) photoObj;
+                }
+            }
+            if (imageUrl == null || imageUrl.trim().isEmpty()) {
+                Object photoUrlObj = document.get("photoUrl");
+                if (photoUrlObj instanceof String) {
+                    imageUrl = (String) photoUrlObj;
+                }
             }
             finalReport.setImageUrl(imageUrl);
 

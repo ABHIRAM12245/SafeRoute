@@ -22,6 +22,22 @@ import com.vlabs.routeguard.managers.SessionManager;
 import com.vlabs.routeguard.notifications.NotificationActivity;
 import com.vlabs.routeguard.utils.AppPreferences;
 
+/**
+ * Application Settings and Preferences Dashboard Activity.
+ *
+ * Provides entry points and configuration dialogs for user customization, system appearance,
+ * geographic defaults, localization, and account management.
+ *
+ * Managed Capabilities:
+ * - Profile Access: Launches {@link ProfileBottomSheet} for authenticated users or prompts {@link LoginRequiredBottomSheet}.
+ * - Notification Rules: Navigates to {@link NotificationSettingsActivity}.
+ * - Search Radius Configuration: Persists default hazard detection radius (1km to 25km).
+ * - Theme Configuration: Toggles Dark Mode, Light Mode, or System Follow via {@link AppCompatDelegate#setDefaultNightMode(int)}.
+ * - Multi-Language Localization: Allows dynamic locale selection via {@link AppPreferences#applyLanguage(String)}.
+ * - About SafeRoute: Navigates to {@link AboutActivity}.
+ * - Session Termination: Confirms logout via dialog, shuts down Travel Mode workers, clears local/cloud credentials,
+ *   and redirects to {@link AuthenticationActivity}.
+ */
 public class SettingsActivity extends BaseActivity {
 
     @Override
@@ -50,7 +66,7 @@ public class SettingsActivity extends BaseActivity {
         if (findViewById(R.id.btnNotificationSettings) != null) {
             findViewById(R.id.btnNotificationSettings).setOnClickListener(v -> {
                 if (isFinishing() || isDestroyed()) return;
-                Intent intent = new Intent(SettingsActivity.this, NotificationActivity.class);
+                Intent intent = new Intent(SettingsActivity.this, NotificationSettingsActivity.class);
                 startActivity(intent);
             });
         }
@@ -166,7 +182,18 @@ public class SettingsActivity extends BaseActivity {
             });
         }
 
-        // 7. Logout
+        // 7. App Version
+        TextView tvSettingsAppVersion = findViewById(R.id.tvSettingsAppVersion);
+        if (tvSettingsAppVersion != null) {
+            try {
+                String versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+                if (versionName != null && !versionName.isEmpty()) {
+                    tvSettingsAppVersion.setText("v" + versionName);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 8. Logout
         if (findViewById(R.id.btnLogout) != null) {
             findViewById(R.id.btnLogout).setOnClickListener(v -> showLogoutConfirmationDialog());
         }

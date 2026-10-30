@@ -75,6 +75,33 @@ import org.osmdroid.config.Configuration;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 
+/**
+ * Primary Application Dashboard and Interactive Map Activity.
+ *
+ * Serves as the central hub of SafeRoute, hosting the interactive OpenStreetMap (OSMDroid)
+ * canvas, search autocompletion, real-time hazard overlays, bottom navigation, and Travel Mode.
+ *
+ * Core Subsystems & Execution Flow:
+ * 1. OpenStreetMap Configuration:
+ *    - Loads tile cache preferences and sets the required custom User-Agent identifier prior to layout inflation.
+ * 2. Location & Centering:
+ *    - Requests runtime location permissions (FINE & COARSE) via {@link #locationPermissionRequest}.
+ *    - Obtains device GPS coordinates via {@link UserLocationManager} and centers the map upon first fix.
+ * 3. Real-Time Hazard Observation:
+ *    - Observes {@link HomeViewModel#getReports()} LiveData, which queries Cloud Firestore for nearby reports.
+ *    - Applies user category and radius filters from {@link FilterPreferences}.
+ *    - Delegates marker rendering and click listeners to {@link MapManager}. Clicking a marker opens {@link ReportDetailsBottomSheet}.
+ * 4. Place Search & Geocoding:
+ *    - Captures search text input with a 400ms debounce to prevent API flooding.
+ *    - Dispatches HTTP search queries to the OpenStreetMap Nominatim API via Retrofit in {@link HomeViewModel#searchPlaces(String)}.
+ *    - Displays suggestions in a dropdown {@link PlacesAdapter}; selecting a place animates the camera to those coordinates.
+ * 5. Report Creation Launch:
+ *    - Tapping the hazard report FloatingActionButton checks {@link SessionManager#isLoggedIn()}.
+ *    - If unauthenticated, prompts {@link LoginRequiredBottomSheet}; if authenticated, launches {@link ReportActivity}.
+ * 6. Travel Mode Proximity Alerts:
+ *    - Manages a 3-hour foreground/background proximity alert mode (with 30-minute notification cooldowns per hazard)
+ *      coordinated with {@link TravelModeManager} and {@link com.vlabs.routeguard.workers.TravelModeWorker}.
+ */
 public class HomeActivity extends BaseActivity {
 
     private ActivityHomeBinding binding;
@@ -107,7 +134,7 @@ public class HomeActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Configure OSMDroid before inflating the layout
+        // Step 1: Configure OSMDroid configuration and custom User-Agent before inflating map views
         Context ctx = getApplicationContext();
         Configuration.getInstance().load(ctx, android.preference.PreferenceManager.getDefaultSharedPreferences(ctx));
         Configuration.getInstance().setUserAgentValue(ctx.getPackageName());
@@ -190,7 +217,7 @@ public class HomeActivity extends BaseActivity {
         if (isFinishing() || isDestroyed()) return;
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Logout")
-                .setMessage("Are you sure you want to log out of RouteGuard?")
+                .setMessage("Are you sure you want to log out of SafeRoute?")
                 .setPositiveButton("Logout", (dialog, which) -> {
                     Context appContext = getApplicationContext() != null ? getApplicationContext() : this;
                     SessionManager.getInstance().logout(appContext);
@@ -292,6 +319,10 @@ public class HomeActivity extends BaseActivity {
     }
 
     private void handleProfileClick() {
+        if (isFinishing() || isDestroyed()) return;
+        if (getSupportFragmentManager().findFragmentByTag("ProfileBottomSheet") != null) {
+            return;
+        }
         if (!SessionManager.getInstance().isLoggedIn()) {
             com.vlabs.routeguard.utils.DialogUtils.showLoginRequiredDialog(this, () -> {
                 Intent intent = new Intent(HomeActivity.this, com.vlabs.routeguard.authentication.AuthenticationActivity.class);
@@ -533,6 +564,9 @@ public class HomeActivity extends BaseActivity {
     private void setupMarkers() {
         mapManager.setOnReportClickListener(reportIds -> {
             if (isFinishing() || isDestroyed()) return;
+            if (getSupportFragmentManager().findFragmentByTag("ReportDetailsBottomSheet") != null) {
+                return;
+            }
             org.osmdroid.util.GeoPoint currentLoc = homeViewModel.getCurrentLocation().getValue();
             double userLat = currentLoc != null ? currentLoc.getLatitude() : Double.NaN;
             double userLon = currentLoc != null ? currentLoc.getLongitude() : Double.NaN;

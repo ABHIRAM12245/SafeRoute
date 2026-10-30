@@ -7,6 +7,20 @@ import androidx.lifecycle.ViewModel;
 import com.vlabs.routeguard.repositories.AuthenticationRepository;
 import com.vlabs.routeguard.utils.AuthenticationValidator;
 
+/**
+ * Authentication ViewModel.
+ *
+ * Manages UI state and business logic for user authentication, registration,
+ * and password recovery workflows.
+ *
+ * Architecture & Data Flow:
+ * - Sits between the UI layer ({@link LoginFragment}, {@link RegisterFragment})
+ *   and the data access layer ({@link AuthenticationRepository}).
+ * - Performs pre-submission input validation using {@link AuthenticationValidator}
+ *   (checking for non-empty fields, valid email syntax, and minimum 6-character passwords).
+ * - Exposes an observable {@link LiveData} of {@link AuthenticationState} (Idle, Loading, Success, Error)
+ *   so UI controllers can reactively update buttons, loading overlays, and navigation without tight coupling.
+ */
 public class AuthenticationViewModel extends ViewModel {
 
     private final AuthenticationRepository authRepository;
@@ -16,6 +30,11 @@ public class AuthenticationViewModel extends ViewModel {
         this.authRepository = new AuthenticationRepository();
     }
 
+    /**
+     * Exposes the current authentication UI state as an immutable LiveData stream.
+     *
+     * @return LiveData containing the active {@link AuthenticationState}.
+     */
     public LiveData<AuthenticationState> getAuthState() {
         return authState;
     }

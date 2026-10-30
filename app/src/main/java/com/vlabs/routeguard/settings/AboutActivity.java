@@ -1,7 +1,5 @@
 package com.vlabs.routeguard.settings;
 
-import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -10,6 +8,17 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.vlabs.routeguard.R;
 import com.vlabs.routeguard.activities.BaseActivity;
 
+/**
+ * About and Legal Attribution Activity.
+ *
+ * Displays the installed application version, terms of service and community guidelines,
+ * open-source library licenses, and copyright notices.
+ *
+ * Attribution & Compliance:
+ * - Dynamically extracts {@code versionName} from {@link android.content.pm.PackageManager}.
+ * - Displays OpenStreetMap Open Database License (ODbL) and OSMDroid Apache 2.0 attributions.
+ * - Presents community safety and non-distracted driving terms.
+ */
 public class AboutActivity extends BaseActivity {
 
     @Override
@@ -32,50 +41,34 @@ public class AboutActivity extends BaseActivity {
             } catch (Exception ignored) {}
         }
 
-        if (findViewById(R.id.btnGithub) != null) {
-            findViewById(R.id.btnGithub).setOnClickListener(v -> openUrl("https://github.com/VLabs99"));
-        }
-
-        if (findViewById(R.id.btnLinkedin) != null) {
-            findViewById(R.id.btnLinkedin).setOnClickListener(v -> openUrl("https://www.linkedin.com/in/vishwarajsinh-chudasama/"));
-        }
-
-        if (findViewById(R.id.btnPortfolio) != null) {
-            findViewById(R.id.btnPortfolio).setOnClickListener(v -> openUrl("https://vlabs99.github.io/VLabs/"));
-        }
-
-        if (findViewById(R.id.btnPrivacy) != null) {
-            findViewById(R.id.btnPrivacy).setOnClickListener(v -> {
-                Toast.makeText(this, "Privacy Policy: RouteGuard protects your location data.", Toast.LENGTH_SHORT).show();
-            });
-        }
-
         if (findViewById(R.id.btnTerms) != null) {
             findViewById(R.id.btnTerms).setOnClickListener(v -> {
-                Toast.makeText(this, "Terms & Conditions: Please drive safely and report responsibly.", Toast.LENGTH_SHORT).show();
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Terms & Conditions")
+                        .setMessage("SafeRoute is a community-driven road hazard awareness platform.\n\n"
+                                + "• Always prioritize safe driving. Do not interact with the app while actively operating a vehicle.\n"
+                                + "• Report accurate and verified road hazards to help fellow motorists.\n"
+                                + "• Respect community guidelines. False or misleading reports may lead to trust score reduction.\n"
+                                + "• Obey all local traffic and safety regulations.")
+                        .setPositiveButton("Understood", null)
+                        .show();
             });
         }
 
         if (findViewById(R.id.btnOpenSource) != null) {
             findViewById(R.id.btnOpenSource).setOnClickListener(v -> {
-                Toast.makeText(this, "Open Source Licenses: OpenStreetMap, Firebase, Material Components.", Toast.LENGTH_SHORT).show();
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Open Source Licenses & Attributions")
+                        .setMessage("SafeRoute is built with gratitude to the open-source community:\n\n"
+                                + "• OpenStreetMap: Map data © OpenStreetMap contributors, licensed under the Open Database License (ODbL).\n\n"
+                                + "• Osmdroid: OpenStreetMap-Tools for Android, licensed under the Apache License 2.0.\n\n"
+                                + "• Google Firebase: Firebase Authentication, Cloud Firestore, Cloud Messaging, licensed under Apache 2.0.\n\n"
+                                + "• Google Android Material Components: Licensed under Apache 2.0.\n\n"
+                                + "• Square OkHttp: Licensed under Apache 2.0.\n\n"
+                                + "• Bumptech Glide: Licensed under BSD, MIT, and Apache 2.0.")
+                        .setPositiveButton("Close", null)
+                        .show();
             });
-        }
-    }
-
-    private void openUrl(String url) {
-        if (url == null || url.isEmpty() || isFinishing() || isDestroyed()) return;
-        try {
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            if (intent.resolveActivity(getPackageManager()) != null) {
-                startActivity(intent);
-            } else {
-                startActivity(intent);
-            }
-        } catch (android.content.ActivityNotFoundException e) {
-            Toast.makeText(this, "No browser installed", Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "No browser installed", Toast.LENGTH_SHORT).show();
         }
     }
 }
